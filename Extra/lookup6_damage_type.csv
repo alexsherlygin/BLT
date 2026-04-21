@@ -1,0 +1,15 @@
+display,value
+Balancing weight deviation,BALANCING_WEIGHT
+Cavity / air inclusion,CAVITY_AIR
+Contamination,CONTAMINATION
+Colour deviation,COLOUR
+Core material deviation,CORE_MATERIAL
+Crack,CRACK
+Excess resign,EXCESS_RESIGN
+Foreign object,FOREIGN_OBJECT
+(Drilled) hole,DRILLED_HOLE
+Laminate whitening,LAMINATE_WHITENING
+Laminate waves,LAMINATE_WAVES
+Lightning protection system deviation,LIGHTNING_PROTECTION
+Scratch,SCRATCH
+Unclassified deviation,UNCLASSIFIED_DEVIATION

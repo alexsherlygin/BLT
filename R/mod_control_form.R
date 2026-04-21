@@ -857,8 +857,13 @@ mod_control_form_ui <- function(id){
     # buttons for help files — only render for lookups that have data loaded AND help PDF exists
     tagList(lapply(1:8, function(i) {
       items <- myEnv[[paste0("var_dropdown", i)]]
-      help_pdf <- normalizePath(paste0(myEnv$data_dir, "/help", i, ".pdf"), mustWork = FALSE)
-      if (length(items) > 0 && file.exists(help_pdf)) {
+      help_name <- myEnv$config[[paste0("lookup", i, "HelpFile")]]
+      help_pdf <- if (!is.null(help_name) && nzchar(help_name)) {
+        normalizePath(file.path(myEnv$data_dir, help_name), mustWork = FALSE)
+      } else {
+        ""
+      }
+      if (length(items) > 0 && nzchar(help_pdf) && file.exists(help_pdf)) {
         label <- myEnv$config[[paste0("lookup", i, "Label")]]
         actionButton(
           inputId = ns(paste0("lookup", i, "_help")),
@@ -2093,14 +2098,22 @@ mod_control_form_server <- function(id, r){
       #documents_dir <- file.path(home_dir)
       #volumes <- c(Documents = fs::path_home(), "R Installation" = R.home(), shinyFiles::getVolumes()())
 
-      # Create volumes list containing only the Documents folder
-      volumes <- c(shinyFiles::getVolumes()())
+      export_roots <- get_export_roots()
+      default_root <- get_export_default_root(export_roots)
 
       if (is.integer(input$export_annotations)) {
         cat("No directory has been selected (shinyDirChoose)")
-        shinyFiles::shinyDirChoose(input,"export_annotations", roots = volumes, session = session)
+        shinyFiles::shinyDirChoose(
+          input,
+          "export_annotations",
+          roots = export_roots,
+          session = session,
+          defaultPath = "",
+          defaultRoot = default_root,
+          allowDirCreate = TRUE
+        )
       } else {
-        annotations_export_dir <- shinyFiles::parseDirPath(volumes, input$export_annotations)
+        annotations_export_dir <- shinyFiles::parseDirPath(export_roots, input$export_annotations)
         annotations_export_full_path_rds <- paste0(annotations_export_dir,"/", r$user_name, "s_annotations.rds")
         annotations_export_full_path_xlsx <- paste0(annotations_export_dir,"/", r$user_name, "s_annotations.xlsx")
 

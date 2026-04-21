@@ -73,6 +73,34 @@ refresh_user_config <- function(session){
   return("user config refreshed!")
 }
 
+get_export_roots <- function() {
+  restricted_dir <- Sys.getenv("PANNOTATOR_EXPORT_DIR", unset = "")
+  restricted_root_name <- Sys.getenv("PANNOTATOR_EXPORT_ROOT_NAME", unset = "Export Folder")
+
+  if (nzchar(restricted_dir)) {
+    export_dir <- normalizePath(restricted_dir, mustWork = FALSE)
+    dir.create(export_dir, recursive = TRUE, showWarnings = FALSE)
+
+    if (dir.exists(export_dir)) {
+      roots <- export_dir
+      names(roots) <- restricted_root_name
+      return(roots)
+    }
+
+    warning(paste0("Configured export directory is unavailable: ", restricted_dir))
+  }
+
+  c(shinyFiles::getVolumes()())
+}
+
+get_export_default_root <- function(roots) {
+  if (length(roots) == 1) {
+    return(names(roots)[1])
+  }
+
+  NULL
+}
+
 # get image files from folder
 get_image_files <- function(folderToUse){
   imgs_fn <- list.files(folderToUse, pattern = "JPG$|JPEG$|PNG$", ignore.case = TRUE, recursive = FALSE, full.names = FALSE)
@@ -200,11 +228,33 @@ edit_annotation_data <- function(myUserAnnotationsData, myId,
                                  myRadius = NA, myGeometry = NA,
                                  myDD1 = NA, myDD2 = NA, myDD3 = NA, myDD4 = NA, myDD5 = NA, myDD6 = NA, myDD7 = NA, myDD8 = NA) {
 
+  normalize_optional_value <- function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA)
+    }
+    x[1]
+  }
+
+  myId <- normalize_optional_value(myId)
+  myUser <- normalize_optional_value(myUser)
+  myImage <- normalize_optional_value(myImage)
+  myFeatureType <- normalize_optional_value(myFeatureType)
+  myRadius <- normalize_optional_value(myRadius)
+  myGeometry <- normalize_optional_value(myGeometry)
+  myDD1 <- normalize_optional_value(myDD1)
+  myDD2 <- normalize_optional_value(myDD2)
+  myDD3 <- normalize_optional_value(myDD3)
+  myDD4 <- normalize_optional_value(myDD4)
+  myDD5 <- normalize_optional_value(myDD5)
+  myDD6 <- normalize_optional_value(myDD6)
+  myDD7 <- normalize_optional_value(myDD7)
+  myDD8 <- normalize_optional_value(myDD8)
+
   # Identify the row to update
   row_to_update <- myUserAnnotationsData$id == myId
 
   # Function to check if a parameter was provided (is not NA)
-  is_provided <- function(x) !is.na(x)
+  is_provided <- function(x) length(x) == 1 && !is.na(x)
 
   # Update values only if they are provided
   if (is_provided(myUser)) myUserAnnotationsData[row_to_update, "user"] <- myUser

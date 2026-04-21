@@ -123,8 +123,7 @@ apply_config_defaults <- function(config_values) {
     cfg_val <- config_values[[cfg_name]]
     if (
       is.null(cfg_val) ||
-      length(cfg_val) == 0 ||
-      (is.character(cfg_val) && length(cfg_val) == 1 && !nzchar(cfg_val))
+      length(cfg_val) == 0
     ) {
       config_values[[cfg_name]] <- defaults[[cfg_name]]
     }
@@ -169,7 +168,10 @@ was_projectSettingsFile_passed_in <- function() {
       if (is.null(help_name) || !nzchar(help_name)) {
         next
       }
-      fromPath <- normalizePath(file.path(myEnv$data_dir, help_name))
+      fromPath <- normalizePath(file.path(myEnv$data_dir, help_name), mustWork = FALSE)
+      if (!file.exists(fromPath)) {
+        next
+      }
       #toPath <- normalizePath(file.path(app_sys("app/www"), myEnv$config[[lookupFile]]))
       toPath <- normalizePath(file.path(tempdir(), destFile))
       #print(toPath)

@@ -360,17 +360,25 @@ mod_360_image_server <- function(id, r){
       #documents_dir <- file.path(home_dir)
       #volumes <- c(Documents = fs::path_home(), "R Installation" = R.home(),shinyFiles::getVolumes()())
 
-      # Create volumes list containing only the Documents folder
-      volumes <- c(shinyFiles::getVolumes()())
+      export_roots <- get_export_roots()
+      default_root <- get_export_default_root(export_roots)
 
       if (is.integer(input$exportPolygonsAsImages)) {
         cat("No directory has been selected (shinyDirChoose)")
-        shinyFiles::shinyDirChoose(input,"exportPolygonsAsImages", roots = volumes, session = session, defaultPath = "", defaultRoot = NULL, allowDirCreate = TRUE)
+        shinyFiles::shinyDirChoose(
+          input,
+          "exportPolygonsAsImages",
+          roots = export_roots,
+          session = session,
+          defaultPath = "",
+          defaultRoot = default_root,
+          allowDirCreate = TRUE
+        )
       } else {
 
         save_annotations(myAnnotations=r$user_annotations_data, myAnnotationFileName = r$user_annotations_file_name)
 
-        annotations_export_dir <- shinyFiles::parseDirPath(volumes, input$exportPolygonsAsImages)
+        annotations_export_dir <- shinyFiles::parseDirPath(export_roots, input$exportPolygonsAsImages)
         #print(annotations_export_dir)
 
         #added progressIndicator in function
@@ -395,15 +403,24 @@ mod_360_image_server <- function(id, r){
 
     # export all polygons button
     observe({
-      volumes <- c(shinyFiles::getVolumes()())
+      export_roots <- get_export_roots()
+      default_root <- get_export_default_root(export_roots)
 
       if (is.integer(input$exportAllPolygonsAsImages)) {
         cat("No directory has been selected (shinyDirChoose)")
-        shinyFiles::shinyDirChoose(input, "exportAllPolygonsAsImages", roots = volumes, session = session, defaultPath = "", defaultRoot = NULL, allowDirCreate = TRUE)
+        shinyFiles::shinyDirChoose(
+          input,
+          "exportAllPolygonsAsImages",
+          roots = export_roots,
+          session = session,
+          defaultPath = "",
+          defaultRoot = default_root,
+          allowDirCreate = TRUE
+        )
       } else {
         save_annotations(myAnnotations=r$user_annotations_data, myAnnotationFileName = r$user_annotations_file_name)
 
-        annotations_export_dir <- shinyFiles::parseDirPath(volumes, input$exportAllPolygonsAsImages)
+        annotations_export_dir <- shinyFiles::parseDirPath(export_roots, input$exportAllPolygonsAsImages)
         exported_count <- create_cropped_polygons_from_all_360_images(annotations_export_dir)
 
         shinyWidgets::show_alert(

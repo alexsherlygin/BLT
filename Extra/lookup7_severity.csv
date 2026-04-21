@@ -1,0 +1,6 @@
+display,value
+Informative,0
+Conform,1
+Minor nonconformity,2
+Major nonconformity,3
+Observation,4

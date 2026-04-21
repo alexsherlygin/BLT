@@ -1,0 +1,13 @@
+.git
+.gitignore
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+renv/library
+renv/staging
+renv/cache
+node_modules
+*.log
+.DS_Store
+.env
