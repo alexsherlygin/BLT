@@ -18,20 +18,20 @@
 - Command to install dependencies for running from source:
 
 ```bash
-Rscript -e 'install.packages(c("remotes","roxygen2")); remotes::install_deps(".", dependencies = TRUE)'
+Rscript -e 'install.packages(c("remotes","roxygen2")); remotes::install_deps("app", dependencies = TRUE)'
 ```
 
 - Alternative if you want the package installed locally:
 
 ```bash
-Rscript -e 'install.packages("remotes"); remotes::install_local(".", dependencies = TRUE)'
+Rscript -e 'install.packages("remotes"); remotes::install_local("app", dependencies = TRUE)'
 ```
 
 ## Run
 - Command to start app from this repo:
 
 ```bash
-Rscript dev/run_dev.R
+Rscript app/dev/run_dev.R
 ```
 
 - Optional run with project-specific YAML:
@@ -42,13 +42,13 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 
 ## App URL
 - Default dev URL: `http://127.0.0.1:8090`
-- `dev/run_dev.R` uses port `8090` by default.
+- `app/dev/run_dev.R` uses port `8090` by default.
 - Port can be changed with `PANNOTATOR_PORT`.
 - If app is started via `run_app()` directly, the port may be overridden by Shiny options instead.
 
 ## Required environment variables
 - No required `.env` file or required env vars were found in the repo.
-- Optional vars used by `dev/run_dev.R`:
+- Optional vars used by `app/dev/run_dev.R`:
 - `PANNOTATOR_HOST=127.0.0.1`
 - `PANNOTATOR_PORT=8090`
 - `PANNOTATOR_LAUNCH_BROWSER=true`
@@ -70,7 +70,7 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - Runtime temp upload folder: `tempdir()/files`
 
 ## Files and folders the app expects
-- Repo assets under `inst/app/www/` are bundled with the package and required by the UI.
+- Package assets under `app/inst/app/www/` are bundled with the package and required by the UI when working from the repo root.
 - Default mode: the package auto-creates the user config/data dirs above on load.
 - Default mode: the package auto-creates `lookup1.csv` ... `lookup8.csv` and `username_lookup.csv` in the data dir if they are missing.
 - Default mode: `userAnnotations.rds` is created on first save in the data dir.
@@ -81,7 +81,7 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - If custom lookup CSVs are missing, the app still starts, but dropdowns may be empty.
 
 ## Notes
-- `dev/run_dev.R` reloads the package from source and requires either `roxygen2` or `pkgload`; the install command above includes `roxygen2`.
+- `app/dev/run_dev.R` reloads the package from source and requires either `roxygen2` or `pkgload`; the install command above includes `roxygen2`.
 - The dev launcher sets `shiny.maxRequestSize` to about `5000 MB`.
 - There is no database, queue, cache, Redis, or cloud storage integration in the repo.
 - Before useful work in the UI, the user still needs to choose a username and upload panoramic images.
@@ -90,14 +90,15 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 ## Runtime launch
 - Recommended non-dev launch:
 ```bash
-    Rscript scripts/run_app.R
+    Rscript infra/docker/scripts/run_app.R
 ```
 
 ## Docker preset lookups
-- The Docker image now seeds project data from `Extra/` into `/data/project` on container start.
-- The container generates a runtime YAML from `container-project-settings.yml` and sets `PANNOTATOR_PROJECT_SETTINGS` automatically.
+- Build the Docker image from the repo root with `docker build -f infra/docker/Dockerfile .`.
+- The Docker image now seeds project data from `resources/seed-project/` into `/data/project` on container start.
+- The container generates a runtime YAML from `infra/docker/config/container-project-settings.yml` and sets `PANNOTATOR_PROJECT_SETTINGS` automatically.
 - To persist lookup edits and `userAnnotations.rds` across container recreations, mount a volume to `/data/project`.
-- If you do not mount a volume, every new container still starts with the baked-in lookup defaults from `Extra/`.
+- If you do not mount a volume, every new container still starts with the baked-in lookup defaults from `resources/seed-project/`.
 - Export dialogs can be restricted to a single safe folder by setting `PANNOTATOR_EXPORT_DIR` (Docker image default: `/exports`).
 - To let users export to the host Desktop without exposing container internals, bind-mount a host folder such as `$HOME/Desktop/BLT-Exports` to `/exports`.
 
