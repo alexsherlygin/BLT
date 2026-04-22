@@ -202,7 +202,7 @@ mod_360_image_ui <- function(id){
 #' @noRd
 mod_360_image_server <- function(id, r){
   moduleServer( id, function(input, output, session){
-    show_server_export_buttons <- !tolower(Sys.getenv("PANNOTATOR_HIDE_IMAGE_EXPORT_BUTTONS", unset = "true")) %in% c("true", "1", "yes")
+    show_server_export_buttons <- !tolower(Sys.getenv("BLT_HIDE_IMAGE_EXPORT_BUTTONS", unset = "true")) %in% c("true", "1", "yes")
 
     ns <- session$ns
 
@@ -293,7 +293,7 @@ mod_360_image_server <- function(id, r){
 
       image_to_use <- paste0("/temp_dir/files/", r$current_image)
       #print(r$current_image)
-      #temp_dir <- tools::R_user_dir("pannotator")
+      #temp_dir <- tools::R_user_dir("blt")
 
       # Construct the URL using the determined image file
       src_url <- paste0("www/pannellum.htm#panorama=", image_to_use,

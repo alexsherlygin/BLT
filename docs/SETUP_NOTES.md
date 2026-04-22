@@ -1,7 +1,7 @@
 # Local setup notes
 
 ## Runtime
-- App/package: `pannotator` `1.0.0.4`
+- App/package: `blt` `1.0.0.4`
 - R: `4.5.3` locally detected (`README` minimum: `>= 4.4.0`)
 - Shiny: `1.13.0` locally detected (`README` minimum: `>= 1.9.1`)
 - golem: `0.5.1`
@@ -37,21 +37,21 @@ Rscript app/dev/run_dev.R
 - Optional run with project-specific YAML:
 
 ```bash
-Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browser=TRUE, shiny.maxRequestSize=5000 * 1024^2); library(pannotator); pannotator::run_app(projectSettingsFile = "/absolute/path/to/project.yml")'
+Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browser=TRUE, shiny.maxRequestSize=5000 * 1024^2); library(blt); blt::run_app(projectSettingsFile = "/absolute/path/to/project.yml")'
 ```
 
 ## App URL
 - Default dev URL: `http://127.0.0.1:8090`
 - `app/dev/run_dev.R` uses port `8090` by default.
-- Port can be changed with `PANNOTATOR_PORT`.
+- Port can be changed with `BLT_PORT`.
 - If app is started via `run_app()` directly, the port may be overridden by Shiny options instead.
 
 ## Required environment variables
 - No required `.env` file or required env vars were found in the repo.
 - Optional vars used by `app/dev/run_dev.R`:
-- `PANNOTATOR_HOST=127.0.0.1`
-- `PANNOTATOR_PORT=8090`
-- `PANNOTATOR_LAUNCH_BROWSER=true`
+- `BLT_HOST=127.0.0.1`
+- `BLT_PORT=8090`
+- `BLT_LAUNCH_BROWSER=true`
 - Optional advanced golem config selection:
 - `GOLEM_CONFIG_ACTIVE=default|production|dev`
 - `R_CONFIG_ACTIVE=default|production|dev`
@@ -64,8 +64,8 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - System dependency: `ExifTool` CLI must be available for EXIF read/write
 - API keys: optional `mapAPIKey` in project/default YAML only for Google tiles
 - Local folders created/used by default:
-- Config dir: `/Users/a1/Library/Preferences/org.R-project.R/R/pannotator`
-- Data dir: `/Users/a1/Library/Application Support/org.R-project.R/R/pannotator`
+- Config dir: `/Users/a1/Library/Preferences/org.R-project.R/R/blt`
+- Data dir: `/Users/a1/Library/Application Support/org.R-project.R/R/blt`
 - Default config file: `default-project-config.yml` in the config dir above
 - Runtime temp upload folder: `tempdir()/files`
 
@@ -96,10 +96,10 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 ## Docker preset lookups
 - Build the Docker image from the repo root with `docker build -f infra/docker/Dockerfile .`.
 - The Docker image now seeds project data from `resources/seed-project/` into `/data/project` on container start.
-- The container generates a runtime YAML from `infra/docker/config/container-project-settings.yml` and sets `PANNOTATOR_PROJECT_SETTINGS` automatically.
+- The container generates a runtime YAML from `infra/docker/config/container-project-settings.yml` and sets `BLT_PROJECT_SETTINGS` automatically.
 - To persist lookup edits and `userAnnotations.rds` across container recreations, mount a volume to `/data/project`.
 - If you do not mount a volume, every new container still starts with the baked-in lookup defaults from `resources/seed-project/`.
-- Export dialogs can be restricted to a single safe folder by setting `PANNOTATOR_EXPORT_DIR` (Docker image default: `/exports`).
+- Export dialogs can be restricted to a single safe folder by setting `BLT_EXPORT_DIR` (Docker image default: `/exports`).
 - To let users export to the host Desktop without exposing container internals, bind-mount a host folder such as `$HOME/Desktop/BLT-Exports` to `/exports`.
 
 ## Persistence

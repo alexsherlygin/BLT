@@ -53,18 +53,18 @@ RUN R -e "remotes::install_local('/workspace/app', dependencies = TRUE, upgrade 
 RUN chmod +x /workspace/infra/docker/scripts/docker_entrypoint.sh
 RUN mkdir -p /data/project /exports
 
-ENV PANNOTATOR_HOST=0.0.0.0
-ENV PANNOTATOR_PORT=8090
-ENV PANNOTATOR_LAUNCH_BROWSER=false
+ENV BLT_HOST=0.0.0.0
+ENV BLT_PORT=8090
+ENV BLT_LAUNCH_BROWSER=false
 ENV GOLEM_CONFIG_ACTIVE=production
 ENV R_CONFIG_ACTIVE=production
-ENV PANNOTATOR_PROJECT_DIR=/data/project
-ENV PANNOTATOR_SEED_PROJECT_DIR=/workspace/resources/seed-project
-ENV PANNOTATOR_PROJECT_SETTINGS_TEMPLATE=/workspace/infra/docker/config/container-project-settings.yml
-ENV PANNOTATOR_GENERATED_PROJECT_SETTINGS=/tmp/pannotator-project-settings.yml
-ENV PANNOTATOR_EXPORT_DIR=/exports
-ENV PANNOTATOR_EXPORT_ROOT_NAME="Export Folder"
-ENV PANNOTATOR_HIDE_IMAGE_EXPORT_BUTTONS=true
+ENV BLT_PROJECT_DIR=/data/project
+ENV BLT_SEED_PROJECT_DIR=/workspace/resources/seed-project
+ENV BLT_PROJECT_SETTINGS_TEMPLATE=/workspace/infra/docker/config/container-project-settings.yml
+ENV BLT_GENERATED_PROJECT_SETTINGS=/tmp/blt-project-settings.yml
+ENV BLT_EXPORT_DIR=/exports
+ENV BLT_EXPORT_ROOT_NAME="Export Folder"
+ENV BLT_HIDE_IMAGE_EXPORT_BUTTONS=true
 
 EXPOSE 8090
 

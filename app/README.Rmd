@@ -13,22 +13,22 @@ output: github_document
 )
 ```
 
-# `{pannotator}`
+# `{blt}`
 
-> **Note:** This is a modified version of the original pannotator package by CSIRO (Nunzio Knerr, Robert Godfree).  
+> **Note:** This is a modified version of the original package by CSIRO (Nunzio Knerr, Robert Godfree).  
 > Modified by Aleksandr Sherlygin (VINCI Energies), April 2026.  
-> Original source: <https://github.com/NunzioKnerr/pannotator_package_source>  
+> Repository: <https://github.com/alexsherlygin/BLT>  
 > Licensed under GPL (>= 3). See LICENSE.md for details.
 
 <!-- badges: start -->
 
-[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental) [![Codecov test coverage](https://codecov.io/gh/NunzioKnerr/pannotator/graph/badge.svg)](https://app.codecov.io/gh/NunzioKnerr/pannotator)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental) [![Codecov test coverage](https://codecov.io/gh/alexsherlygin/BLT/graph/badge.svg)](https://app.codecov.io/gh/alexsherlygin/BLT)
 
 <!-- badges: end -->
 
-## pannotator
+## blt
 
-The Panospheric Image Annotator in R (pannotator) software package provides an easy-to-use interface for visualising 360 degree camera images on satellite imagery and annotating the images with data selected from user-defined drop-down menus. It is designed for use in ecological and biogeographical research but can be used to extract data from any spatially explicit 360 degree camera imagery. This vignette provides an overview of the functionality of the package, including setup and configuration, interface layout, image selection, drop-down menu specification, annotation of image files, and exporting data.
+The Panospheric Image Annotator in R (blt) software package provides an easy-to-use interface for visualising 360 degree camera images on satellite imagery and annotating the images with data selected from user-defined drop-down menus. It is designed for use in ecological and biogeographical research but can be used to extract data from any spatially explicit 360 degree camera imagery. This vignette provides an overview of the functionality of the package, including setup and configuration, interface layout, image selection, drop-down menu specification, annotation of image files, and exporting data.
 
 ## Installation
 
@@ -78,7 +78,7 @@ if (exists("check_for_ExifTool")) {
 }
 ```
 
-You must also install the ‘remotes’ package which we will use to install the pannotator package.
+You must also install the ‘remotes’ package which we will use to install the blt package.
 
 ```{r, eval= FALSE}
 check_for_package <-  system.file(package = "remotes")
@@ -93,13 +93,13 @@ if (check_for_package == "") {
 }
 ```
 
-You can now install the development version of the pannotator software.
+You can now install the development version of the blt software.
 
 ```{r, eval= FALSE}
 library(remotes)
 
 # to install from github use this code: 
-remotes::install_github("nunzioknerr/pannotator_package_source")
+remotes::install_github("alexsherlygin/BLT")
 ```
 
 ## Running the Package
@@ -107,7 +107,7 @@ remotes::install_github("nunzioknerr/pannotator_package_source")
 To run the application use the following code.
 
 ```{r, eval= FALSE}
-library(pannotator)
+library(blt)
 
 options(shiny.port = httpuv::randomPort(), shiny.launch.browser = .rs.invokeShinyWindowExternal, shiny.maxRequestSize = 5000 * 1024^2)
 
@@ -121,5 +121,5 @@ Once run, the above code will popup a browser window with the shiny application 
 If you want help you can find it using the following code:
 
 ```{r, eval= FALSE}
-vignette('pannotator', package = 'pannotator')
+vignette('blt', package = 'blt')
 ```

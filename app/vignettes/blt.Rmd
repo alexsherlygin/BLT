@@ -1,8 +1,8 @@
 ---
-title: "pannotator"
+title: "blt"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{pannotator}
+  %\VignetteIndexEntry{blt}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,14 +16,14 @@ knitr::opts_chunk$set(
 
 # Introductory Vignette
 
-The Panospheric Image Annotator in R (pannotator) software package provides an easy-to-use interface for visualising 360-degree camera images on satellite or map imagery and annotating the images with data selected from user-defined dropdown menus. It also allows the user to draw points, rectangles and complex polygons on 360-degree images and satellite or other map images, export geolocation and other annotation data for these geometries, and export geocoded cropped sub-images (patches) for use in other applications. It is designed for use in ecological and biogeographical research but can be used to extract data from any spatially explicit 360 degree camera imagery. This vignette provides an overview of the functionality of the package, including setup and configuration, interface layout, image selection, dropdown menu specification, annotation of image files, cropping sub-images and exporting data.
+The Panospheric Image Annotator in R (blt) software package provides an easy-to-use interface for visualising 360-degree camera images on satellite or map imagery and annotating the images with data selected from user-defined dropdown menus. It also allows the user to draw points, rectangles and complex polygons on 360-degree images and satellite or other map images, export geolocation and other annotation data for these geometries, and export geocoded cropped sub-images (patches) for use in other applications. It is designed for use in ecological and biogeographical research but can be used to extract data from any spatially explicit 360 degree camera imagery. This vignette provides an overview of the functionality of the package, including setup and configuration, interface layout, image selection, dropdown menu specification, annotation of image files, cropping sub-images and exporting data.
 
 ## Running the Package
 
 To run the application use the following code.
 
 ```{r setup, echo=TRUE, eval=FALSE, results='hold', warning=FALSE, include=TRUE}
-library(pannotator)
+library(blt)
 
 options(shiny.port = httpuv::randomPort(), shiny.launch.browser = .rs.invokeShinyWindowExternal)
 
@@ -34,13 +34,13 @@ Once run, the above code will popup a browser window with the shiny application 
 
 ## User Interface Layout
 
-The pannotator graphical user interface contains three panels. The Mapping Panel (Figure 1, left) contains a button for selecting a .kmz file containing one or more images, a window for rendering the geolocation of images in the .kmz file onto satellite imagery or user-selectable maps, and several spatial mapping tools. The Image Panel (Figure 1, centre) contains a dropdown menu for navigating to individual image files and a window that loads the equirectangular image into 360-degree panoramic viewing mode using the Pannellum web viewer. It also allows the user to view and draw on flattened equirectangular images and export cropped sub-images. The Annotation Panel (right panel, Figure 1) contains a settings button (cog), image and annotation file information and a series of customisable dropdown menus that contain user names, help files, image annotation functionality, and export functions. This Shiny app relies on several R packages including leaflet, leaflet.extras, shinyFiles, exiftoolr and shinywidgets for key functionality.
+The blt graphical user interface contains three panels. The Mapping Panel (Figure 1, left) contains a button for selecting a .kmz file containing one or more images, a window for rendering the geolocation of images in the .kmz file onto satellite imagery or user-selectable maps, and several spatial mapping tools. The Image Panel (Figure 1, centre) contains a dropdown menu for navigating to individual image files and a window that loads the equirectangular image into 360-degree panoramic viewing mode using the Pannellum web viewer. It also allows the user to view and draw on flattened equirectangular images and export cropped sub-images. The Annotation Panel (right panel, Figure 1) contains a settings button (cog), image and annotation file information and a series of customisable dropdown menus that contain user names, help files, image annotation functionality, and export functions. This Shiny app relies on several R packages including leaflet, leaflet.extras, shinyFiles, exiftoolr and shinywidgets for key functionality.
 
-![Example layout of the pannotator package loaded with a .kmz file (left) and an individual image (centre).](Images/Figure1_small.png){fig-align="center" width="95%"}
+![Example layout of the blt package loaded with a .kmz file (left) and an individual image (centre).](Images/Figure1_small.png){fig-align="center" width="95%"}
 
 ### Setup and Configuration
 
-The pannotator application can be opened in any web browser. Once running, settings can be accessed using the cog icon at the top corner of the Annotation Panel. The drop down window contains three panels: a 'Main Settings' tab, a 'Lookups' tab, and an 'About This Software' tab (Figure 2, left). In the Main Settings tab you can change general settings. These are grouped into 1) *Layout Settings*, including the size of the Mapping, Image and Annotation Panels, turning on or off popup alert windows, and altering the theme for the entire application, 2) *Mapping Panel Settings*, which includes setting the background map, icons and markers for points, rectangles and polygons drawn on maps, and the colour, weight and opacity of the stroke (outline) and the fill of polygons and rectangles, 3) *Image Panel Settings*, which includes the same functionality for drawing and formatting shapes but on 360-degree flattened equirectangular images in the Image Panel, and the capacity to turn off borders and fill on the exported version of cropped sub-images ('Show Polygon Stroke/Fill in Cropped Image Export' checkboxes), and 4) *Annotation Panel Settings* which includes choosing a custom user name lookup file (Figure 2, centre & Figure 3, right) and defining the format of the annotation export file (e.g., .csv or .rds).
+The blt application can be opened in any web browser. Once running, settings can be accessed using the cog icon at the top corner of the Annotation Panel. The drop down window contains three panels: a 'Main Settings' tab, a 'Lookups' tab, and an 'About This Software' tab (Figure 2, left). In the Main Settings tab you can change general settings. These are grouped into 1) *Layout Settings*, including the size of the Mapping, Image and Annotation Panels, turning on or off popup alert windows, and altering the theme for the entire application, 2) *Mapping Panel Settings*, which includes setting the background map, icons and markers for points, rectangles and polygons drawn on maps, and the colour, weight and opacity of the stroke (outline) and the fill of polygons and rectangles, 3) *Image Panel Settings*, which includes the same functionality for drawing and formatting shapes but on 360-degree flattened equirectangular images in the Image Panel, and the capacity to turn off borders and fill on the exported version of cropped sub-images ('Show Polygon Stroke/Fill in Cropped Image Export' checkboxes), and 4) *Annotation Panel Settings* which includes choosing a custom user name lookup file (Figure 2, centre & Figure 3, right) and defining the format of the annotation export file (e.g., .csv or .rds).
 
 ![Main Settings (left and centre) and Lookups (right). The Lookups are tables that appear as dropdown menus in the Annotation Panel (below) and are used to add data annotations to images, markers and drawn geometries.](Images/Figure2_small.png){fig-align="center" width="95%"}
 
@@ -124,7 +124,7 @@ Rectangle and polygon geometries drawn on a selected image in Drawing Mode of th
 
 ### Visualising and Validating Data
 
-Below is a simple example of R code for visualising a sample of exported data using the R package mapview. Quarto files that contain a complete set of code for extracting and visualising species distribution data, cover data and tree crown health data, and that validate data extracted from images compared to data collected in the field are provided in the accompanying pannotator_examples and pannotator_data_validation files.
+Below is a simple example of R code for visualising a sample of exported data using the R package mapview. Quarto files that contain a complete set of code for extracting and visualising species distribution data, cover data and tree crown health data, and that validate data extracted from images compared to data collected in the field are provided in the accompanying blt_examples and blt_data_validation files.
 
 This example code generates a plot of scores on the variable dd2 (percentage of tree crown with live leaves) using the package mapview.
 

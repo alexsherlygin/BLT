@@ -1,5 +1,5 @@
 default:
-  golem_name: pannotator
+  golem_name: blt
   golem_version: 1.0.0.4
   app_prod: no
 production:

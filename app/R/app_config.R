@@ -9,7 +9,7 @@
 #'
 #' @noRd
 app_sys <- function(...) {
-  system.file(..., package = "pannotator")
+  system.file(..., package = "blt")
 }
 
 
@@ -59,9 +59,9 @@ r$current_map_zoom <-  12
 #' @noRd
 initialize_config <- function() {
   #config_path <- get_config_path()
-  config_path <- normalizePath(file.path(tools::R_user_dir("pannotator", which = "config"), "default-project-config.yml"), , mustWork = FALSE)
+  config_path <- normalizePath(file.path(tools::R_user_dir("blt", which = "config"), "default-project-config.yml"), , mustWork = FALSE)
   #print(config_path)
-  data_path <- normalizePath(file.path(tools::R_user_dir("pannotator", which = "data")), mustWork = FALSE)
+  data_path <- normalizePath(file.path(tools::R_user_dir("blt", which = "data")), mustWork = FALSE)
 
   if (!file.exists(config_path)) {
     # Create the directory if it doesn't exist
@@ -195,7 +195,7 @@ initialize_config <- function() {
     # Loop through 1 to n to create lookup files
     for (i in 1:n) {
       # Define the lookup file path
-      lookup_file <- normalizePath(file.path(tools::R_user_dir("pannotator", which = "data"), paste0("lookup", i, ".csv")), mustWork = FALSE)
+      lookup_file <- normalizePath(file.path(tools::R_user_dir("blt", which = "data"), paste0("lookup", i, ".csv")), mustWork = FALSE)
 
       # Check if the file exists, if not create it
       if (!file.exists(lookup_file)) {
@@ -216,7 +216,7 @@ initialize_config <- function() {
   # Call the function to create 7 lookup files
   create_lookup_files(8)
 
-  lookup_file <- normalizePath(file.path(tools::R_user_dir("pannotator", which = "data"), paste0("username_lookup.csv")), mustWork = FALSE)
+  lookup_file <- normalizePath(file.path(tools::R_user_dir("blt", which = "data"), paste0("username_lookup.csv")), mustWork = FALSE)
 
   default_username_lookup <- data.frame(
     user_name = c("User 1", "User 2", "User 3", "User 4"),
@@ -253,7 +253,7 @@ initialize_config <- function() {
     # Loop through 1 to n to create PDF files
     for (i in 1:n) {
       # Define the help file path
-      help_file <- normalizePath(file.path(tools::R_user_dir("pannotator", which = "data"), paste0("help", i, ".pdf")), mustWork = FALSE)
+      help_file <- normalizePath(file.path(tools::R_user_dir("blt", which = "data"), paste0("help", i, ".pdf")), mustWork = FALSE)
 
       # Check if the file exists, if not create it
       if (!file.exists(help_file)) {

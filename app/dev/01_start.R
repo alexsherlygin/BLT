@@ -19,7 +19,7 @@
 ## to change the name in the app_sys() function in app_config.R /!\
 ##
 golem::fill_desc(
-  pkg_name = "pannotator",
+  pkg_name = "blt",
   pkg_title = "Visualisation and Annotation of 360 Degree Imagery",
   pkg_description = "Provides a customisable R 'shiny' app for immersively visualising, mapping and annotating panospheric (360 degree) imagery. The flexible interface allows annotation of any geocoded images using up to 4 user specified dropdown menus. The app uses 'leaflet' to render maps that display the geo-locations of images and panellum <https://pannellum.org/>, a lightweight panorama viewer for the web, to render images in virtual 360 degree viewing mode. Key functions include the ability to draw on & export parts of 360 images for downstream applications. Users can also draw polygons and points on map imagery related to the panoramic images and export them for further analysis. Downstream applications include using annotations to train Artificial Intelligence/Machine Learning (AI/ML) models and geospatial modelling and analysis of camera based survey data.",
   authors = c(
@@ -46,7 +46,7 @@ golem::fill_desc(
     person(given = "CSIRO",
            role = "cph")
   ),
-  repo_url = "https://github.com/NunzioKnerr/pannotator_package_source", # The URL of the GitHub repo (optional),
+  repo_url = "https://github.com/alexsherlygin/BLT", # The URL of the GitHub repo (optional),
   pkg_version = "1.0.0.4", # The version of the package containing the app
   set_options = TRUE # Set the global golem options
 )
@@ -84,7 +84,7 @@ golem::use_favicon() # path = "path/to/ico". Can be an online file.
 ## Sets the remote associated with 'name' to 'url'
 usethis::use_git_remote(
   name = "package",
-  url = "https://github.com/NunzioKnerr/pannotator_package_source.git",
+  url = "https://github.com/alexsherlygin/BLT.git",
   overwrite = TRUE
 )
 

@@ -1,4 +1,4 @@
-Package: pannotator
+Package: blt
 Title: Visualisation and Annotation of 360 Degree Imagery
 Version: 1.0.0.4
 Authors@R: c(
@@ -25,9 +25,9 @@ Description: Provides a customisable R 'shiny' app for immersively
     train Artificial Intelligence/Machine Learning (AI/ML) models and
     geospatial modelling and analysis of camera based survey data.
 License: GPL (>= 3)
-URL: https://github.com/NunzioKnerr/pannotator_package_source
+URL: https://github.com/alexsherlygin/BLT
 BugReports: 
-    https://github.com/NunzioKnerr/pannotator_package_source/issues
+    https://github.com/alexsherlygin/BLT/issues
 Imports: 
     bslib,
     colourpicker,

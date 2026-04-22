@@ -73,7 +73,7 @@ golem_add_external_resources <- function() {
 
   add_resource_path(
     "temp_dir",
-    tempdir() #tools::R_user_dir("pannotator")
+    tempdir() #tools::R_user_dir("blt")
   )
 
   tags$head(
@@ -172,8 +172,8 @@ was_projectSettingsFile_passed_in <- function() {
       if (!file.exists(fromPath)) {
         next
       }
-      #toPath <- normalizePath(file.path(app_sys("app/www"), myEnv$config[[lookupFile]]))
-      toPath <- normalizePath(file.path(tempdir(), destFile))
+      # Destination file may not exist yet, so don't normalize it first.
+      toPath <- file.path(tempdir(), destFile)
       #print(toPath)
       file.copy(fromPath, toPath, overwrite = TRUE)
     }
@@ -190,8 +190,8 @@ was_projectSettingsFile_passed_in <- function() {
   initialize_config()
 
   rm(list = ls(envir = myEnv), envir = myEnv)
-  myEnv$config_dir <- normalizePath(tools::R_user_dir("pannotator", which = "config"))
-  myEnv$data_dir <- normalizePath(tools::R_user_dir("pannotator", which = "data"))
+  myEnv$config_dir <- normalizePath(tools::R_user_dir("blt", which = "config"))
+  myEnv$data_dir <- normalizePath(tools::R_user_dir("blt", which = "data"))
   myEnv$project_config_file <- normalizePath(file.path(myEnv$config_dir, "default-project-config.yml"))
 
   myEnv$config <- apply_config_defaults(configr::read.config(myEnv$project_config_file))

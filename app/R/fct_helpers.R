@@ -74,8 +74,8 @@ refresh_user_config <- function(session){
 }
 
 get_export_roots <- function() {
-  restricted_dir <- Sys.getenv("PANNOTATOR_EXPORT_DIR", unset = "")
-  restricted_root_name <- Sys.getenv("PANNOTATOR_EXPORT_ROOT_NAME", unset = "Export Folder")
+  restricted_dir <- Sys.getenv("BLT_EXPORT_DIR", unset = "")
+  restricted_root_name <- Sys.getenv("BLT_EXPORT_ROOT_NAME", unset = "Export Folder")
 
   if (nzchar(restricted_dir)) {
     export_dir <- normalizePath(restricted_dir, mustWork = FALSE)

@@ -15,7 +15,7 @@ Coverage summary is created using the
 
 | Object                                          | Coverage (%) |
 |:------------------------------------------------|:------------:|
-| pannotator                                      |    45.32     |
+| blt                                      |    45.32     |
 | [R/run_app.R](../R/run_app.R)                   |     0.00     |
 | [R/fct_helpers.R](../R/fct_helpers.R)           |     5.43     |
 | [R/app_config.R](../R/app_config.R)             |     7.00     |

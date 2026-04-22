@@ -1,20 +1,26 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# `{pannotator}`
+# `{blt}`
+
+> **Note:** This is a modified version of the original package by CSIRO
+> (Nunzio Knerr, Robert Godfree). Modified by Aleksandr Sherlygin (VINCI
+> Energies), April 2026. Repository:
+> <https://github.com/alexsherlygin/BLT> Licensed under GPL (>= 3). See
+> LICENSE.md for details.
 
 <!-- badges: start -->
 
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![Codecov test
-coverage](https://codecov.io/gh/NunzioKnerr/pannotator/graph/badge.svg)](https://app.codecov.io/gh/NunzioKnerr/pannotator)
+coverage](https://codecov.io/gh/alexsherlygin/BLT/graph/badge.svg)](https://app.codecov.io/gh/alexsherlygin/BLT)
 
 <!-- badges: end -->
 
-## pannotator
+## blt
 
-The Panospheric Image Annotator in R (pannotator) software package
+The Panospheric Image Annotator in R (blt) software package
 provides an easy-to-use interface for visualising 360 degree camera
 images on satellite imagery and annotating the images with data selected
 from user-defined drop-down menus. It is designed for use in ecological
@@ -79,7 +85,7 @@ if (exists("check_for_ExifTool")) {
 ```
 
 You must also install the ‘remotes’ package which we will use to install
-the pannotator package.
+the blt package.
 
 ``` r
 check_for_package <-  system.file(package = "remotes")
@@ -94,13 +100,13 @@ if (check_for_package == "") {
 }
 ```
 
-You can now install the development version of the pannotator software.
+You can now install the development version of the blt software.
 
 ``` r
 library(remotes)
 
 # to install from github use this code: 
-remotes::install_github("nunzioknerr/pannotator_package_source")
+remotes::install_github("alexsherlygin/BLT")
 ```
 
 ## Running the Package
@@ -108,7 +114,7 @@ remotes::install_github("nunzioknerr/pannotator_package_source")
 To run the application use the following code.
 
 ``` r
-library(pannotator)
+library(blt)
 
 options(shiny.port = httpuv::randomPort(), shiny.launch.browser = .rs.invokeShinyWindowExternal, shiny.maxRequestSize = 5000 * 1024^2)
 
@@ -123,5 +129,5 @@ application inside it.
 If you want help you can find it using the following code:
 
 ``` r
-vignette('pannotator', package = 'pannotator')
+vignette('blt', package = 'blt')
 ```

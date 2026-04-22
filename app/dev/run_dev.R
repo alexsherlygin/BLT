@@ -28,7 +28,7 @@ find_package_root <- function() {
 
   stop(
     paste(
-      "Could not determine the pannotator package root.",
+      "Could not determine the blt package root.",
       "Run this script from the repo root or as app/dev/run_dev.R."
     )
   )
@@ -37,11 +37,11 @@ find_package_root <- function() {
 app_dir <- find_package_root()
 
 # Set host/port for local or LAN access.
-# Use PANNOTATOR_HOST=0.0.0.0 to make the app reachable from other devices.
-host <- Sys.getenv("PANNOTATOR_HOST", unset = "127.0.0.1")
-port <- as.integer(Sys.getenv("PANNOTATOR_PORT", unset = "8090"))
-launch_browser <- tolower(Sys.getenv("PANNOTATOR_LAUNCH_BROWSER", unset = "true")) == "true"
-skip_run <- tolower(Sys.getenv("PANNOTATOR_SKIP_RUN", unset = "false")) == "true"
+# Use BLT_HOST=0.0.0.0 to make the app reachable from other devices.
+host <- Sys.getenv("BLT_HOST", unset = "127.0.0.1")
+port <- as.integer(Sys.getenv("BLT_PORT", unset = "8090"))
+launch_browser <- tolower(Sys.getenv("BLT_LAUNCH_BROWSER", unset = "true")) == "true"
+skip_run <- tolower(Sys.getenv("BLT_SKIP_RUN", unset = "false")) == "true"
 
 options(
   shiny.host = host,
@@ -68,9 +68,9 @@ if (requireNamespace("roxygen2", quietly = TRUE)) {
 
 # Run the application unless the script is being validated in CI or automation.
 if (!skip_run) {
-  pannotator::run_app()
+  blt::run_app()
 }
 # run_app(options=list(launch.browser = TRUE))
 
-#pannotator::run_app(projectSettingsFile = "C:/E/test-project.yml")
+#blt::run_app(projectSettingsFile = "C:/E/test-project.yml")
 

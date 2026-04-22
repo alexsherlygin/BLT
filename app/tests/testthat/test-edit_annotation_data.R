@@ -1,8 +1,8 @@
 test_that("edit_annotation_data ignores zero-length field updates", {
-  annotations <- pannotator:::create_user_dataframe()
+  annotations <- blt:::create_user_dataframe()
 
   expect_warning(
-    annotations <- pannotator:::edit_annotation_data(
+    annotations <- blt:::edit_annotation_data(
       myUserAnnotationsData = annotations,
       myId = 1,
       myUser = "tester",
@@ -20,7 +20,7 @@ test_that("edit_annotation_data ignores zero-length field updates", {
   expect_identical(annotations$dd4[[1]], "roof-edge")
 
   updated <- expect_no_error(
-    pannotator:::edit_annotation_data(
+    blt:::edit_annotation_data(
       myUserAnnotationsData = annotations,
       myId = 1,
       myDD1 = character(0),
