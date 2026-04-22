@@ -1,0 +1,93 @@
+showPopupAlerts: true
+appTheme: cerulean
+mapPanelWidth: 5
+panoPanelWidth: 5
+formPanelWidth: 2
+mapPanelSource: Esri.WorldImagery
+mapAPIKey: ""
+mapIconColour: green
+mapMarkerColour: white
+mapPolygonStroke: true
+mapPolygonStrokeColour: blue
+mapPolygonStrokeWeight: 2
+mapPolygonStrokeOpacity: 0.7
+mapPolygonFill: true
+mapPolygonFillColour: navy
+mapPolygonFillOpacity: 0.3
+pano360IconColour: maroon
+pano360MarkerColour: white
+pano360PolygonStroke: true
+pano360PolygonStrokeColour: blue
+pano360PolygonStrokeWeight: 1
+pano360PolygonStrokeOpacity: 0.9
+showPano360PolygonStrokeInCropExport: false
+pano360PolygonFill: true
+pano360PolygonFillColour: purple
+pano360PolygonFillOpacity: 0.1
+showPano360PolygonFillInCropExport: true
+projectFolder: "__PROJECT_FOLDER__"
+annotationsFile: userAnnotations.rds
+usernameLookupFile: username_lookup.csv
+exportFileFormat: xlsx
+
+# Fixed lookup mapping for the container image:
+# 1. Wind Turbine Number -> lookup1_wtn.csv
+# 2. Blade Number -> lookup2_bn.csv
+# 3. Chamber Number -> lookup3_cn.csv
+# 4. Defect Position From Roof -> text input
+# 5. Cross Section Position -> lookup5_cross_section_position.csv + Lookup_5_cross_section_position.pdf
+# 6. Damage Type -> lookup6_damage_type.csv
+# 7. Severity -> lookup7_severity.csv
+# 8. Note -> text input
+#
+# Rule:
+# - If a field should be free text, set lookupXTextInput: true
+# - For optional lookups (2-8), also keep lookupXEnabled: true if the field should be shown
+# - Leave lookupXCsvFile / lookupXHelpFile empty when there is no file
+
+lookup1Label: "Wind Turbine Number"
+lookup1CsvFile: "lookup1_wtn.csv"
+lookup1HelpFile: ""
+lookup1TextInput: false
+
+lookup2Label: "Blade Number"
+lookup2CsvFile: "lookup2_bn.csv"
+lookup2HelpFile: ""
+lookup2Enabled: true
+lookup2TextInput: false
+
+lookup3Label: "Chamber Number"
+lookup3CsvFile: "lookup3_cn.csv"
+lookup3HelpFile: ""
+lookup3Enabled: true
+lookup3TextInput: false
+
+lookup4Label: "Defect Position From Roof"
+lookup4CsvFile: ""
+lookup4HelpFile: ""
+lookup4Enabled: true
+lookup4TextInput: true
+
+lookup5Label: "Cross Section Position"
+lookup5CsvFile: "lookup5_cross_section_position.csv"
+lookup5HelpFile: "Lookup_5_cross_section_position.pdf"
+lookup5Enabled: true
+lookup5TextInput: false
+
+lookup6Label: "Damage Type"
+lookup6CsvFile: "lookup6_damage_type.csv"
+lookup6HelpFile: ""
+lookup6Enabled: true
+lookup6TextInput: false
+
+lookup7Label: "Severity"
+lookup7CsvFile: "lookup7_severity.csv"
+lookup7HelpFile: ""
+lookup7Enabled: true
+lookup7TextInput: false
+
+lookup8Label: "Note"
+lookup8CsvFile: ""
+lookup8HelpFile: ""
+lookup8Enabled: true
+lookup8TextInput: true
