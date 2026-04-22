@@ -202,6 +202,8 @@ mod_360_image_ui <- function(id){
 #' @noRd
 mod_360_image_server <- function(id, r){
   moduleServer( id, function(input, output, session){
+    show_server_export_buttons <- !tolower(Sys.getenv("PANNOTATOR_HIDE_IMAGE_EXPORT_BUTTONS", unset = "true")) %in% c("true", "1", "yes")
+
     ns <- session$ns
 
     #set the image dropdown to load when the kmz is unzipped and r$imgs_lst is changed
@@ -326,7 +328,7 @@ mod_360_image_server <- function(id, r){
                    ),
 
                    # Additional buttons for exporting polygons as images
-                   if (!toggleState() && (has_current_360_polygons || has_any_360_polygons)) {
+                   if (show_server_export_buttons && !toggleState() && (has_current_360_polygons || has_any_360_polygons)) {
                      shiny::div(
                        style = "display: flex; gap: 6px; width: 100%;",
                        if (has_current_360_polygons) {
@@ -350,6 +352,10 @@ mod_360_image_server <- function(id, r){
 
     # export Polygons button
     observe({
+      if (!show_server_export_buttons) {
+        return(invisible(NULL))
+      }
+
       #print("Export Polygons Clicked")
       if(length(r$current_annotation_360polygons) < 0) {
         #print( "no polygons to export")
@@ -403,6 +409,10 @@ mod_360_image_server <- function(id, r){
 
     # export all polygons button
     observe({
+      if (!show_server_export_buttons) {
+        return(invisible(NULL))
+      }
+
       export_roots <- get_export_roots()
       default_root <- get_export_default_root(export_roots)
 
