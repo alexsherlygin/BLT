@@ -880,12 +880,17 @@ mod_control_form_ui <- function(id){
              #actionButton(inputId = ns("save_annotations"), label = "Save All Records", icon = icon("save"), style = "margin-bottom: 5px;"),
               tags$div(
                 style = "display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 5px;",
-                shinyFiles::shinyDirButton(id=ns("export_annotations"), label='Export All Records', title='Please select a folder to export the annotations into :)', icon=icon("download"), multiple=FALSE, viewtype="list", style = "margin-bottom: 0;"),
+                downloadButton(
+                  outputId = ns("export_annotations"),
+                  label = "Download All Records",
+                  icon = icon("download"),
+                  style = "margin-bottom: 0;"
+                ),
                 tags$div(
                   style = "margin-top: 6px;",
                   checkboxInput(
                     inputId = ns("export_include_annotation_images"),
-                    label = "Include annotation images in Excel export",
+                    label = "Include annotation images in ZIP download",
                     value = FALSE
                   )
                 )
@@ -981,6 +986,240 @@ mod_control_form_server <- function(id, r){
         }
       }
     })
+
+    sanitize_download_name <- function(value) {
+      normalized_value <- ""
+      if (!is.null(value) && length(value) > 0) {
+        normalized_value <- stringr::str_squish(as.character(value)[1])
+      }
+      if (!nzchar(normalized_value)) {
+        normalized_value <- "annotations"
+      }
+
+      normalized_value <- gsub("[^A-Za-z0-9._-]+", "_", normalized_value)
+      normalized_value <- gsub("_+", "_", normalized_value)
+      normalized_value <- gsub("^_+|_+$", "", normalized_value)
+
+      if (!nzchar(normalized_value)) {
+        "annotations"
+      } else {
+        normalized_value
+      }
+    }
+
+    get_effective_export_format <- function() {
+      effective_export_format <- myEnv$config$exportFileFormat
+      if (
+        is.null(effective_export_format) ||
+        !is.character(effective_export_format) ||
+        length(effective_export_format) != 1 ||
+        is.na(effective_export_format) ||
+        !nzchar(effective_export_format) ||
+        identical(effective_export_format, "csv")
+      ) {
+        effective_export_format <- "xlsx"
+      }
+
+      effective_export_format
+    }
+
+    build_annotations_export_data <- function() {
+      temp_df <- r$user_annotations_data[, colnames(r$user_annotations_data) != "radius", drop = FALSE]
+      colnames(temp_df) <- c(
+        "user", "id", "imagefile", "feature_type", "geometry",
+        paste0(myEnv$config$lookup1Label), paste0(myEnv$config$lookup2Label),
+        paste0(myEnv$config$lookup3Label), paste0(myEnv$config$lookup4Label),
+        paste0(myEnv$config$lookup5Label), paste0(myEnv$config$lookup6Label),
+        paste0(myEnv$config$lookup7Label), paste0(myEnv$config$lookup8Label)
+      )
+
+      normalize_col_name <- function(x) gsub("\\s+", " ", trimws(tolower(x)))
+      normalized_colnames <- normalize_col_name(colnames(temp_df))
+      wt_idx <- which(normalized_colnames == normalize_col_name("Wind Turbine Number"))
+      blade_idx <- which(normalized_colnames == normalize_col_name("Blade Number"))
+
+      if (length(wt_idx) == 1 && length(blade_idx) == 1) {
+        wt_col <- colnames(temp_df)[wt_idx]
+        blade_col <- colnames(temp_df)[blade_idx]
+
+        wt_vals <- trimws(as.character(temp_df[[wt_col]]))
+        blade_vals <- trimws(as.character(temp_df[[blade_col]]))
+        valid_key <- !is.na(wt_vals) & !is.na(blade_vals) & nzchar(wt_vals) & nzchar(blade_vals)
+
+        group_key <- ifelse(valid_key, paste0(wt_vals, "||", blade_vals), NA_character_)
+        group_count <- integer(nrow(temp_df))
+        running_counts <- new.env(parent = emptyenv())
+
+        for (i in seq_len(nrow(temp_df))) {
+          key <- group_key[i]
+          if (!is.na(key)) {
+            next_n <- if (exists(key, envir = running_counts, inherits = FALSE)) {
+              get(key, envir = running_counts, inherits = FALSE) + 1
+            } else {
+              1
+            }
+            assign(key, next_n, envir = running_counts)
+            group_count[i] <- next_n
+          } else {
+            group_count[i] <- NA_integer_
+          }
+        }
+
+        defect_id <- ifelse(
+          !is.na(group_count),
+          paste0(wt_vals, "_", blade_vals, "_", group_count),
+          NA_character_
+        )
+
+        left_df <- if (wt_idx > 1) temp_df[, 1:(wt_idx - 1), drop = FALSE] else temp_df[, 0, drop = FALSE]
+        right_df <- temp_df[, wt_idx:ncol(temp_df), drop = FALSE]
+        temp_df <- data.frame(left_df, "Defect id" = defect_id, right_df, check.names = FALSE, stringsAsFactors = FALSE)
+      }
+
+      temp_df
+    }
+
+    match_annotation_image_paths <- function(annotation_ids, candidate_dir) {
+      if (!dir.exists(candidate_dir)) {
+        return(rep(NA_character_, length(annotation_ids)))
+      }
+
+      png_files <- list.files(
+        path = candidate_dir,
+        pattern = "\\.png$",
+        full.names = TRUE,
+        recursive = TRUE,
+        ignore.case = TRUE
+      )
+      png_basenames <- tolower(basename(png_files))
+
+      vapply(as.character(annotation_ids), function(current_id) {
+        if (is.na(current_id) || !nzchar(current_id)) {
+          return(NA_character_)
+        }
+        id_suffix <- tolower(paste0("_", current_id, ".png"))
+        match_idx <- which(endsWith(png_basenames, id_suffix))
+        if (length(match_idx) == 0) {
+          return(NA_character_)
+        }
+        png_files[match_idx[1]]
+      }, character(1))
+    }
+
+    write_annotations_workbook <- function(annotation_df, xlsx_path, annotation_img_paths = NULL) {
+      wb <- openxlsx::createWorkbook()
+      openxlsx::addWorksheet(wb, "Annotations")
+      openxlsx::writeData(wb, "Annotations", annotation_df, keepNA = FALSE)
+
+      if (!is.null(annotation_img_paths)) {
+        image_col <- ncol(annotation_df)
+        matched_rows <- which(!is.na(annotation_img_paths) & file.exists(annotation_img_paths))
+        if (length(matched_rows) > 0) {
+          openxlsx::setColWidths(wb, sheet = "Annotations", cols = image_col, widths = 35)
+          for (current_row in matched_rows) {
+            excel_row <- current_row + 1
+            openxlsx::setRowHeights(wb, sheet = "Annotations", rows = excel_row, heights = 95)
+            openxlsx::insertImage(
+              wb,
+              sheet = "Annotations",
+              file = annotation_img_paths[current_row],
+              startRow = excel_row,
+              startCol = image_col,
+              width = 2.3,
+              height = 1.2,
+              units = "in",
+              dpi = 96
+            )
+          }
+        }
+      }
+
+      openxlsx::saveWorkbook(wb, xlsx_path, overwrite = TRUE)
+    }
+
+    create_annotation_download <- function(target_file) {
+      req(r$user_annotations_file_name, r$user_annotations_data, r$user_name)
+
+      save_annotations(myAnnotations = r$user_annotations_data, myAnnotationFileName = r$user_annotations_file_name)
+
+      temp_df <- build_annotations_export_data()
+      include_images <- isTRUE(input$export_include_annotation_images)
+      effective_export_format <- get_effective_export_format()
+      user_stub <- sanitize_download_name(paste0(r$user_name, "s_annotations"))
+
+      if (include_images) {
+        if (!requireNamespace("openxlsx", quietly = TRUE)) {
+          stop("Package 'openxlsx' is required for downloads with annotation images.")
+        }
+        if (!requireNamespace("zip", quietly = TRUE)) {
+          stop("Package 'zip' is required for ZIP downloads with annotation images.")
+        }
+
+        export_dir <- file.path(
+          tempdir(),
+          paste0("annotations-download-", as.integer(Sys.time()), "-", sample.int(1e6, 1))
+        )
+        dir.create(export_dir, recursive = TRUE, showWarnings = FALSE)
+        on.exit(unlink(export_dir, recursive = TRUE, force = TRUE), add = TRUE)
+
+        xlsx_path <- file.path(export_dir, paste0(user_stub, ".xlsx"))
+        annotation_images_dir <- file.path(export_dir, paste0(sanitize_download_name(r$user_name), "_annotation_images"))
+        dir.create(annotation_images_dir, recursive = TRUE, showWarnings = FALSE)
+
+        if (!is.null(r$user_annotations_data) && !is.null(r$imgs_lst) && !is.null(r$imgs_metadata)) {
+          tryCatch(
+            create_cropped_polygons_from_all_360_images(annotation_images_dir),
+            error = function(e) 0L
+          )
+        }
+
+        annotation_img_paths <- match_annotation_image_paths(temp_df$id, annotation_images_dir)
+        temp_df[["Annotation image"]] <- ""
+        write_annotations_workbook(temp_df, xlsx_path, annotation_img_paths)
+
+        zip_entries <- basename(xlsx_path)
+        image_entries <- list.files(annotation_images_dir, recursive = TRUE, full.names = FALSE, all.files = FALSE, no.. = TRUE)
+        if (length(image_entries) > 0) {
+          zip_entries <- c(zip_entries, file.path(basename(annotation_images_dir), image_entries))
+        }
+
+        zip::zipr(zipfile = target_file, files = zip_entries, root = export_dir)
+        return(invisible(NULL))
+      }
+
+      if (effective_export_format == "rds") {
+        saveRDS(temp_df, file = target_file)
+        return(invisible(NULL))
+      }
+
+      if (!requireNamespace("openxlsx", quietly = TRUE)) {
+        stop("Package 'openxlsx' is required for Excel downloads.")
+      }
+
+      write_annotations_workbook(temp_df, target_file)
+      invisible(NULL)
+    }
+
+    output$export_annotations <- downloadHandler(
+      filename = function() {
+        req(r$user_name)
+        user_stub <- sanitize_download_name(paste0(r$user_name, "s_annotations"))
+        if (isTRUE(input$export_include_annotation_images)) {
+          return(paste0(user_stub, ".zip"))
+        }
+
+        paste0(user_stub, ".", get_effective_export_format())
+      },
+      content = function(file) {
+        tryCatch(
+          create_annotation_download(file),
+          error = function(e) {
+            showNotification(conditionMessage(e), type = "error")
+            stop(conditionMessage(e))
+          }
+        )
+      }
+    )
 
     # Quick Fill: Apply WT/Blade/Chamber to ALL annotations across all images
     observe({
@@ -2090,289 +2329,6 @@ mod_control_form_server <- function(id, r){
 
       }
     }) %>% bindEvent(r$current_image)
-
-    #export annotations button
-    observe({
-      req(r$user_annotations_file_name,  r$user_annotations_data)
-      #home_dir <- fs::path_home()
-      #documents_dir <- file.path(home_dir)
-      #volumes <- c(Documents = fs::path_home(), "R Installation" = R.home(), shinyFiles::getVolumes()())
-
-      export_roots <- get_export_roots()
-      default_root <- get_export_default_root(export_roots)
-
-      if (is.integer(input$export_annotations)) {
-        cat("No directory has been selected (shinyDirChoose)")
-        shinyFiles::shinyDirChoose(
-          input,
-          "export_annotations",
-          roots = export_roots,
-          session = session,
-          defaultPath = "",
-          defaultRoot = default_root,
-          allowDirCreate = TRUE
-        )
-      } else {
-        annotations_export_dir <- shinyFiles::parseDirPath(export_roots, input$export_annotations)
-        annotations_export_full_path_rds <- paste0(annotations_export_dir,"/", r$user_name, "s_annotations.rds")
-        annotations_export_full_path_xlsx <- paste0(annotations_export_dir,"/", r$user_name, "s_annotations.xlsx")
-
-        save_annotations(myAnnotations=r$user_annotations_data, myAnnotationFileName = r$user_annotations_file_name)
-
-        temp_df <- r$user_annotations_data[, colnames(r$user_annotations_data) != "radius", drop = FALSE]
-        colnames(temp_df) <- c(
-          "user", "id", "imagefile", "feature_type", "geometry",
-          paste0(myEnv$config$lookup1Label), paste0(myEnv$config$lookup2Label),
-          paste0(myEnv$config$lookup3Label), paste0(myEnv$config$lookup4Label),
-          paste0(myEnv$config$lookup5Label), paste0(myEnv$config$lookup6Label),
-          paste0(myEnv$config$lookup7Label), paste0(myEnv$config$lookup8Label)
-        )
-
-        # Defect id builder:
-        # - Format: WT_Blade_N
-        # - N is a running count inside each WT+Blade group (1,2,3,...).
-        # - This block depends on export columns named "Wind Turbine Number" and "Blade Number".
-        # - If lookup labels are renamed (or not uniquely matched), this block is skipped.
-        #   Export still succeeds, but without the "Defect id" column.
-        normalize_col_name <- function(x) gsub("\\s+", " ", trimws(tolower(x)))
-        normalized_colnames <- normalize_col_name(colnames(temp_df))
-        wt_idx <- which(normalized_colnames == normalize_col_name("Wind Turbine Number"))
-        blade_idx <- which(normalized_colnames == normalize_col_name("Blade Number"))
-
-        # Execute only when both required columns are found exactly once.
-        # If condition is FALSE, temp_df stays unchanged (no Defect id insertion).
-        if (length(wt_idx) == 1 && length(blade_idx) == 1) {
-          wt_col <- colnames(temp_df)[wt_idx]
-          blade_col <- colnames(temp_df)[blade_idx]
-
-          wt_vals <- trimws(as.character(temp_df[[wt_col]]))
-          blade_vals <- trimws(as.character(temp_df[[blade_col]]))
-          valid_key <- !is.na(wt_vals) & !is.na(blade_vals) & nzchar(wt_vals) & nzchar(blade_vals)
-
-          group_key <- ifelse(valid_key, paste0(wt_vals, "||", blade_vals), NA_character_)
-          group_count <- integer(nrow(temp_df))
-          running_counts <- new.env(parent = emptyenv())
-
-          for (i in seq_len(nrow(temp_df))) {
-            key <- group_key[i]
-            if (!is.na(key)) {
-              next_n <- if (exists(key, envir = running_counts, inherits = FALSE)) {
-                get(key, envir = running_counts, inherits = FALSE) + 1
-              } else {
-                1
-              }
-              assign(key, next_n, envir = running_counts)
-              group_count[i] <- next_n
-            } else {
-              group_count[i] <- NA_integer_
-            }
-          }
-
-          defect_id <- ifelse(
-            !is.na(group_count),
-            paste0(wt_vals, "_", blade_vals, "_", group_count),
-            NA_character_
-          )
-
-          left_df <- if (wt_idx > 1) temp_df[, 1:(wt_idx - 1), drop = FALSE] else temp_df[, 0, drop = FALSE]
-          right_df <- temp_df[, wt_idx:ncol(temp_df), drop = FALSE]
-          temp_df <- data.frame(left_df, "Defect id" = defect_id, right_df, check.names = FALSE, stringsAsFactors = FALSE)
-        }
-
-        effective_export_format <- myEnv$config$exportFileFormat
-        if (
-          is.null(effective_export_format) ||
-          !is.character(effective_export_format) ||
-          length(effective_export_format) != 1 ||
-          is.na(effective_export_format) ||
-          !nzchar(effective_export_format) ||
-          identical(effective_export_format, "csv")
-        ) {
-          effective_export_format <- "xlsx"
-        }
-
-        if (isTRUE(input$export_include_annotation_images)) {
-          if (!requireNamespace("openxlsx", quietly = TRUE)) {
-            shinyWidgets::show_alert(
-              title = "Export Failed",
-              text = HTML("Package <b>openxlsx</b> is required for Excel export with images. Please install it and try again."),
-              html = TRUE,
-              type = "error"
-            )
-          } else {
-            annotation_images_dir <- file.path(annotations_export_dir, paste0(r$user_name, "_annotation_images"))
-            dir.create(annotation_images_dir, recursive = TRUE, showWarnings = FALSE)
-
-            exported_count <- 0L
-            if (!is.null(r$user_annotations_data) && !is.null(r$imgs_lst) && !is.null(r$imgs_metadata)) {
-              exported_count <- tryCatch(
-                create_cropped_polygons_from_all_360_images(annotation_images_dir),
-                error = function(e) 0L
-              )
-            }
-
-            candidate_dirs <- unique(c(annotation_images_dir, annotations_export_dir))
-            png_files <- unlist(lapply(candidate_dirs, function(current_dir) {
-              if (!dir.exists(current_dir)) {
-                return(character(0))
-              }
-              list.files(
-                path = current_dir,
-                pattern = "\\.png$",
-                full.names = TRUE,
-                recursive = TRUE,
-                ignore.case = TRUE
-              )
-            }), use.names = FALSE)
-            png_basenames <- tolower(basename(png_files))
-
-            annotation_img_paths <- vapply(as.character(temp_df$id), function(current_id) {
-              if (is.na(current_id) || !nzchar(current_id)) {
-                return(NA_character_)
-              }
-              id_suffix <- tolower(paste0("_", current_id, ".png"))
-              match_idx <- which(endsWith(png_basenames, id_suffix))
-              if (length(match_idx) == 0) {
-                return(NA_character_)
-              }
-              png_files[match_idx[1]]
-            }, character(1))
-
-            temp_df[["Annotation image"]] <- ""
-            matched_count <- sum(!is.na(annotation_img_paths) & file.exists(annotation_img_paths))
-
-            export_ok <- tryCatch({
-              wb <- openxlsx::createWorkbook()
-              openxlsx::addWorksheet(wb, "Annotations")
-              openxlsx::writeData(wb, "Annotations", temp_df, keepNA = FALSE)
-
-              image_col <- ncol(temp_df)
-              if (matched_count > 0) {
-                matched_rows <- which(!is.na(annotation_img_paths) & file.exists(annotation_img_paths))
-                openxlsx::setColWidths(wb, sheet = "Annotations", cols = image_col, widths = 35)
-                for (current_row in matched_rows) {
-                  excel_row <- current_row + 1
-                  openxlsx::setRowHeights(wb, sheet = "Annotations", rows = excel_row, heights = 95)
-                  openxlsx::insertImage(
-                    wb,
-                    sheet = "Annotations",
-                    file = annotation_img_paths[current_row],
-                    startRow = excel_row,
-                    startCol = image_col,
-                    width = 2.3,
-                    height = 1.2,
-                    units = "in",
-                    dpi = 96
-                  )
-                }
-              }
-
-              openxlsx::saveWorkbook(wb, annotations_export_full_path_xlsx, overwrite = TRUE)
-              TRUE
-            }, error = function(e) {
-              shinyWidgets::show_alert(
-                title = "Export Failed",
-                text = HTML(paste0(
-                  "Could not write the Excel export file.<br>",
-                  "Please close the file if it is open and try again.<br><br>",
-                  annotations_export_full_path_xlsx
-                )),
-                html = TRUE,
-                type = "error"
-              )
-              FALSE
-            })
-            rm(temp_df)
-
-            if (isTRUE(export_ok)) {
-              shinyWidgets::show_alert(
-                title = "Export Successful!",
-                text = HTML(paste0(
-                  "You exported the annotations to:<br>", annotations_export_full_path_xlsx,
-                  "<br><br>Images matched by annotation id: ", matched_count,
-                  "<br>Polygon crops generated in this run: ", exported_count
-                )),
-                html = TRUE,
-                type = "success"
-              )
-            }
-          }
-        }
-        else if(effective_export_format == "rds"){
-          export_ok <- tryCatch({
-            saveRDS(temp_df, file=annotations_export_full_path_rds)
-            TRUE
-          }, error = function(e) {
-            shinyWidgets::show_alert(
-              title = "Export Failed",
-              text = HTML(paste0(
-                "Could not write the export file.<br>",
-                "Please close the file if it is open (for example in Excel) and try again.<br><br>",
-                annotations_export_full_path_rds
-              )),
-              html = TRUE,
-              type = "error"
-            )
-            FALSE
-          })
-          rm(temp_df)
-          if (isTRUE(export_ok)) {
-            #file.copy(r$user_annotations_file_name, annotations_export_full_path_rds, overwrite = TRUE)
-            #if(myEnv$config$showPopupAlerts == TRUE){
-            shinyWidgets::show_alert(
-              title = "Export Successful!",
-              text = HTML(paste0("You exported the annotations to:<br>", annotations_export_full_path_rds )),
-              html = TRUE,
-              type = "success"
-            )
-            #}
-          }
-        }
-        else if (effective_export_format == "xlsx"){
-          if (!requireNamespace("openxlsx", quietly = TRUE)) {
-            shinyWidgets::show_alert(
-              title = "Export Failed",
-              text = HTML("Package <b>openxlsx</b> is required for Excel export. Please install it and try again."),
-              html = TRUE,
-              type = "error"
-            )
-          } else {
-            export_ok <- tryCatch({
-              wb <- openxlsx::createWorkbook()
-              openxlsx::addWorksheet(wb, "Annotations")
-              openxlsx::writeData(wb, "Annotations", temp_df, keepNA = FALSE)
-              openxlsx::saveWorkbook(wb, annotations_export_full_path_xlsx, overwrite = TRUE)
-              TRUE
-            }, error = function(e) {
-              shinyWidgets::show_alert(
-                title = "Export Failed",
-                text = HTML(paste0(
-                  "Could not write the export file.<br>",
-                  "Please close the file if it is open (for example in Excel) and try again.<br><br>",
-                  annotations_export_full_path_xlsx
-                )),
-                html = TRUE,
-                type = "error"
-              )
-              FALSE
-            })
-            rm(temp_df)
-            if (isTRUE(export_ok)) {
-              shinyWidgets::show_alert(
-                title = "Export Successful!",
-                text = HTML(paste0("You exported the annotations to:<br>", annotations_export_full_path_xlsx )),
-                html = TRUE,
-                type = "success"
-              )
-            }
-          }
-        }
-
-      }
-
-    }) %>% bindEvent(input$export_annotations)
-
-
 
     # refresh_the form triggered when the apply settings button is clicked and user changes settings
     observe({

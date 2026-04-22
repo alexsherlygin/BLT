@@ -59,7 +59,8 @@ Imports:
     shinyWidgets,
     stringr,
     tools,
-    utils
+    utils,
+    zip
 Suggests: 
     knitr,
     openxlsx,
