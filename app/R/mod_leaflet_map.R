@@ -30,12 +30,15 @@ mod_leaflet_map_ui <- function(id){
     #for putting JS externally
     #tags$head(tags$script(src = "handlers.js") ),
 
-    fileInput(ns("image_files"), "Load image files:",
-              accept = c(".png", ".jpg", ".jpeg"), multiple = TRUE,
-              placeholder = "SECOND: Select panoramic images to annotate..."
-    ) |> shinyhelper::helper(type = "markdown",
-                             content = "kmz_file_loader_help",
-                             icon = "question-circle"),
+    tags$div(
+      id = ns("image_selection_help_wrapper"),
+      fileInput(ns("image_files"), "Load image files:",
+                accept = c(".png", ".jpg", ".jpeg"), multiple = TRUE,
+                placeholder = "SECOND: Select panoramic images to annotate..."
+      ) |> shinyhelper::helper(type = "markdown",
+                               content = "kmz_file_loader_help",
+                               icon = "question-circle")
+    ),
     textOutput(ns("fileDetails")),
     shinyWidgets::progressBar(id = ns("pb1"), value = 0, title = ""),
     leaflet::leafletOutput(ns("mymap"), height = 720),
@@ -58,18 +61,21 @@ mod_leaflet_map_kmz_ui <- function(id) {
   ns <- NS(id)
 
   tagList(
-    fileInput(
-      ns("image_files"),
-      "Load image files:",
-      accept = c(".png", ".jpg", ".jpeg"),
-      multiple = TRUE,
-      placeholder = "SECOND: Select panoramic images to annotate..."
-    ) |>
-      shinyhelper::helper(
-        type = "markdown",
-        content = "kmz_file_loader_help",
-        icon = "question-circle"
-      ),
+    tags$div(
+      id = ns("image_selection_help_wrapper"),
+      fileInput(
+        ns("image_files"),
+        "Load image files:",
+        accept = c(".png", ".jpg", ".jpeg"),
+        multiple = TRUE,
+        placeholder = "SECOND: Select panoramic images to annotate..."
+      ) |>
+        shinyhelper::helper(
+          type = "markdown",
+          content = "kmz_file_loader_help",
+          icon = "question-circle"
+        )
+    ),
     textOutput(ns("fileDetails")),
     shinyWidgets::progressBar(id = ns("pb1"), value = 0, title = "")
   )
@@ -81,6 +87,9 @@ mod_leaflet_map_kmz_ui <- function(id) {
 mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
+    addCurrentImageToMap_impl <- addCurrentImageToMap
+    add_annotations_to_map_impl <- add_annotations_to_map
+    remove_map_item_impl <- remove_map_item
 
     #output$mymap <- loadBaseLeafletMap()
 
@@ -90,14 +99,14 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
     observe({
       shinyWidgets::updateProgressBar(session = session, id = "pb1", value = 50, title = "Copying uploaded images...")
 
-      files_extracted <- copy_uploaded_images(input$image_files)
+      files_extracted <- copy_uploaded_images(input$image_files, r$session_files_dir)
 
       shinyWidgets::updateProgressBar(session = session, id = "pb1", value = 75, title = "Loading image metadata")
-      r$imgs_metadata <- load_image_metadata(file.path(tempdir(), "files"))
+      r$imgs_metadata <- load_image_metadata(r$session_files_dir)
 
       shinyWidgets::updateProgressBar(session = session, id = "pb1", value = 100, title = files_extracted)
 
-      r$imgs_lst <- get_image_files(file.path(tempdir(), "files"))
+      r$imgs_lst <- get_image_files(r$session_files_dir)
 
       if (isTRUE(map_enabled)) {
         output$mymap <- loadBaseLeafletMap(kml="")
@@ -128,13 +137,13 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
 
         r$current_map_zoom <- input$mymap_zoom
 
-        addCurrentImageToMap()
+        addCurrentImageToMap_impl(r)
 
-        previous_annotations_map <- check_for_annotations(r$user_annotations_data, r$current_image)
+        previous_annotations_map <- check_for_annotations(r$user_annotations_data, r$current_image, r$user_name)
 
         if(nrow(previous_annotations_map > 1)){
           #print("annotations already exist")
-          add_annotations_to_map()
+          add_annotations_to_map_impl(r)
 
         }
 
@@ -187,7 +196,7 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
       observe({
         #print("new map item: leaflet")
         req(r$new_leafletMap_item)
-        add_annotations_to_map()
+        add_annotations_to_map_impl(r)
       }) %>% bindEvent(r$new_leafletMap_item)
 
 
@@ -195,7 +204,7 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
       observe({
         #print("remove_map_item: leaflet")
         req(r$remove_leafletMap_item)
-        remove_map_item()
+        remove_map_item_impl(r)
       }) %>% bindEvent(r$remove_leafletMap_item)
 
       # observe clicks on the map (kml) loaded when someone clicks on a yellow marker
@@ -213,8 +222,8 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
         #print("refresh_leaflet_item: map")
         req(r$refresh_user_config, r$current_image)
         output$mymap <- loadBaseLeafletMap(kml="")
-        addCurrentImageToMap()
-        add_annotations_to_map()
+        addCurrentImageToMap_impl(r)
+        add_annotations_to_map_impl(r)
       }) %>% bindEvent(r$refresh_user_config)
     }
 

@@ -11,12 +11,6 @@ mod_control_form_ui <- function(id){
   ns <- NS(id)
 
   #print("mod_control_form")
-  #the environment setup in app_config.R file
-  myEnv$var_choices <- load_lookup(
-    fileToLoad = myEnv$config$usernameLookupFile,
-    display_column = "user_name",
-    value_column = "value")
-
   myEnv$var_dropdown1 <- load_lookup(
     fileToLoad = myEnv$config$lookup1CsvFile,
     display_column = "display",
@@ -86,7 +80,9 @@ mod_control_form_ui <- function(id){
              ###################################
              # config form in drop down button #
              ###################################
-             shinyWidgets::dropdownButton(
+             tags$div(
+               id = ns("settings_button_wrapper"),
+               shinyWidgets::dropdownButton(
 
                navbarPage(
                  title = "Berta Labelling Tool",
@@ -821,20 +817,11 @@ mod_control_form_ui <- function(id){
                inputId="settingsBtn",
                tooltip = shinyWidgets::tooltipOptions(title = "Click to set app configurations!")
              )
+             )
     ),
     #########################
     # end of dropdownButton #
     #########################
-
-    shinyWidgets::pickerInput(
-      inputId =  ns("user_name"),
-      label = "User Name",
-      choices = myEnv$var_choices,
-      #selected = myEnv$var_choices[1],
-      multiple = FALSE,
-      width = "100%",
-      options = list(container = "body", title = "FIRST: Select Your Name")
-    ), #%>% shinyhelper::helper(type = "markdown", content = "user_name", icon = "question-circle"),
 
     htmlOutput(ns("infoText")),
 
@@ -909,6 +896,144 @@ mod_control_form_ui <- function(id){
 mod_control_form_server <- function(id, r){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
+    save_user_config_impl <- save_user_config
+    refresh_user_config_impl <- refresh_user_config
+    add_annotations_form_impl <- add_annotations_form
+    clear_annotations_form_impl <- clear_annotations_form
+    check_for_annotations_impl <- check_for_annotations
+    create_cropped_polygons_from_all_360_images_impl <- create_cropped_polygons_from_all_360_images
+
+    is_admin_session <- function() {
+      auth <- session$userData$auth
+      if (is.null(auth) || !isTRUE(auth$authenticated)) {
+        return(FALSE)
+      }
+
+      role_value <- ""
+      if (!is.null(auth$role) && length(auth$role) > 0 && !is.na(auth$role[[1]])) {
+        role_value <- trimws(tolower(as.character(auth$role[[1]])))
+      }
+
+      identical(role_value, "admin")
+    }
+
+    queued_global_update <- reactiveVal(NULL)
+    debounced_global_update <- shiny::debounce(
+      reactive(queued_global_update()),
+      millis = 1500
+    )
+
+    queue_global_update <- function(mode = c("refresh", "reload"), include_origin = FALSE) {
+      if (!is_admin_session()) {
+        return(invisible(FALSE))
+      }
+
+      mode <- match.arg(mode)
+      queued_global_update(list(
+        token = paste0(
+          format(Sys.time(), "%Y%m%d%H%M%OS6"),
+          "-",
+          sprintf("%06d", sample.int(999999, 1))
+        ),
+        mode = mode,
+        include_origin = isTRUE(include_origin)
+      ))
+
+      invisible(TRUE)
+    }
+
+    observeEvent(debounced_global_update(), ignoreInit = TRUE, {
+      update_request <- debounced_global_update()
+      req(!is.null(update_request))
+
+      broadcast_config_refresh(
+        mode = update_request$mode,
+        project_config_file = myEnv$project_config_file,
+        origin_session_token = session$token,
+        include_origin = isTRUE(update_request$include_origin)
+      )
+    })
+
+    save_user_config <- function(config_var) {
+      if (!is_admin_session()) {
+        return(invisible("settings update skipped"))
+      }
+
+      save_user_config_impl(config_var, r)
+      queue_global_update(mode = "reload", include_origin = FALSE)
+    }
+
+    refresh_user_config <- function(session) {
+      if (!is_admin_session()) {
+        return(invisible("settings refresh skipped"))
+      }
+
+      refresh_user_config_impl(session, r)
+    }
+
+    add_annotations_form <- function(...) {
+      add_annotations_form_impl(..., r = r)
+    }
+
+    clear_annotations_form <- function() {
+      clear_annotations_form_impl(r)
+    }
+
+    check_for_annotations <- function(myUserAnnotationsData, myCurrentImage) {
+      check_for_annotations_impl(
+        myUserAnnotationsData = myUserAnnotationsData,
+        myCurrentImage = myCurrentImage,
+        myUser = r$user_name
+      )
+    }
+
+    create_cropped_polygons_from_all_360_images <- function(annotations_export_dir) {
+      create_cropped_polygons_from_all_360_images_impl(annotations_export_dir, r)
+    }
+
+    initialize_authenticated_user <- function() {
+      auth <- session$userData$auth
+      req(!is.null(auth), isTRUE(auth$authenticated))
+
+      authenticated_user_name <- stringr::str_squish(auth$annotation_value)
+      authenticated_login <- stringr::str_squish(auth$login)
+
+      req(
+        nzchar(authenticated_user_name),
+        nzchar(authenticated_login),
+        myEnv$data_dir,
+        myEnv$config$annotationsFile
+      )
+
+      if (
+        identical(r$user_name, authenticated_user_name) &&
+        identical(r$user_login, authenticated_login) &&
+        !is.null(r$user_annotations_data) &&
+        !is.null(r$user_annotations_file_name) &&
+        nzchar(r$user_annotations_file_name)
+      ) {
+        return(invisible(NULL))
+      }
+
+      r$user_name <- authenticated_user_name
+      r$user_login <- authenticated_login
+      r$user_annotations_file_name <- migrate_legacy_annotations_for_user(
+        user_login = r$user_login,
+        user_name = r$user_name,
+        data_dir = myEnv$data_dir
+      )
+      r$user_annotations_data <- check_for_saved_data(r$user_annotations_file_name)
+      golem::invoke_js("showid", "map_panel")
+      if (myEnv$config$showPopupAlerts == TRUE) {
+        shinyWidgets::show_alert(
+          title = "Next.. Upload your images",
+          text = "Upload PNG or JPG panoramic images to annotate.",
+          type = "info"
+        )
+      }
+
+      invisible(NULL)
+    }
 
     # Clean up when the app close
     onStop(function(){
@@ -948,22 +1073,9 @@ mod_control_form_server <- function(id, r){
       )
     }
 
-    #event triggered on selecting username
     observe({
-      r$user_name <- stringr::str_squish(input$user_name)
-      req(r$user_name, myEnv$data_dir, myEnv$config$annotationsFile)
-      r$user_annotations_file_name <- normalizePath(paste0(myEnv$data_dir, "/", myEnv$config$annotationsFile), mustWork = FALSE)
-      #print(r$user_annotations_file_name)
-      r$user_annotations_data <- check_for_saved_data(r$user_annotations_file_name)
-      golem::invoke_js("showid", "map_panel")
-      if(myEnv$config$showPopupAlerts == TRUE){
-        shinyWidgets::show_alert(
-          title = "Next.. Upload your images",
-          text = "Upload PNG or JPG panoramic images to annotate.",
-          type = "info"
-        )
-      }
-    }) %>% bindEvent(input$user_name)
+      initialize_authenticated_user()
+    })
 
     # output for text info
     output$infoText <- renderUI({
@@ -974,7 +1086,7 @@ mod_control_form_server <- function(id, r){
           shinyjs::enable("export_include_annotation_images")
           shinyjs::enable("add_whole_image_annotation")
           #shinyjs::enable("applySettingsButton")
-          str1 <- paste0("<b>Annotation File:</b> ", r$user_name, "s_annotations.rds")
+          str1 <- paste0("<b>Annotation File:</b> ", basename(r$user_annotations_file_name))
           str2 <- paste0("<b>Image File:</b> <small>", r$current_image, "</small><hr>")
           HTML(paste(str1, str2, sep ='<br/>'))
         }
@@ -1316,10 +1428,18 @@ mod_control_form_server <- function(id, r){
     # Respond to SweetAlert confirmation
     observeEvent(input$confirm_clear, {
       if (isTRUE(input$confirm_clear)) {
-        # If user clicked 'Yes', reload the session
-        #print("user clicked yes")
-        r$user_annotations_data <- clear_all_annotation_data(myUserAnnotationsData = r$user_annotations_data)
-        clear_annotations_form()
+        req(is_admin_session())
+
+        clear_all_saved_annotations(
+          data_dir = myEnv$data_dir,
+          legacy_annotations_file = myEnv$config$annotationsFile
+        )
+        broadcast_config_refresh(
+          mode = "reload",
+          project_config_file = myEnv$project_config_file,
+          origin_session_token = session$token,
+          include_origin = TRUE
+        )
       } else {
         # If user clicked 'No', revert to the previous selection
         #print("user clicked no")
@@ -1329,9 +1449,16 @@ mod_control_form_server <- function(id, r){
     #event triggered on apply settings button
     observeEvent(input$applySettingsButton, ignoreInit = TRUE, {
       #print("Apply Settings Button Clicked")
-      myEnv$config <- configr::read.config(myEnv$project_config_file)
-      #r$refresh_user_config <- TRUE
-      refresh_user_config(session)
+      req(is_admin_session())
+
+      myEnv$config <- apply_config_defaults(configr::read.config(myEnv$project_config_file))
+      r$config <- myEnv$config
+      broadcast_config_refresh(
+        mode = "reload",
+        project_config_file = myEnv$project_config_file,
+        origin_session_token = session$token,
+        include_origin = TRUE
+      )
     })
 
     #event triggered on showPopupAlerts checkbox

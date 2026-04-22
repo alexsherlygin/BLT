@@ -5,6 +5,7 @@ Use these keyboard shortcuts while working in the Image Panel:
 - `Z`: Previous image
 - `X`: Next image
 - `A`: Switch between Drawing Mode and Viewing Mode
+- `E`: Select the rectangle annotation tool in Drawing Mode
 - `S`: Toggle fullscreen mode for the Image Panel
 
 Notes:

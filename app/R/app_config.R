@@ -43,16 +43,251 @@ get_golem_config <- function(
   )
 }
 
-# r for all the reactive values
-r <- shiny::reactiveValues()
-# track active annotations so we can remove them
-r$active_annotations <- reactiveVal(value = NULL)
-r$remove_leafletMap_item <- reactiveVal(value = NULL)
-r$remove_leaflet360_item <- reactiveVal(value = NULL)
-r$active_annotations_collapse <- NULL
-r$refresh_user_config <- NULL
-r$current_map_zoom <-  12
-#r$current_image <- reactiveVal(value = NULL)
+create_session_state <- function(session_token = NULL, config = NULL) {
+  state <- shiny::reactiveValues()
+  state$active_annotations <- reactiveVal(value = NULL)
+  state$remove_leafletMap_item <- reactiveVal(value = NULL)
+  state$remove_leaflet360_item <- reactiveVal(value = NULL)
+  state$active_annotations_collapse <- NULL
+  state$refresh_user_config <- NULL
+  state$current_map_zoom <- 12
+  state$config <- config
+  state$session_token <- session_token
+  state$session_workspace_id <- NULL
+
+  if (!is.null(session_token) && nzchar(session_token)) {
+    set_session_workspace(state, session_token)
+  }
+
+  state
+}
+
+sanitize_storage_name <- function(value) {
+  normalized_value <- trimws(as.character(value)[1])
+  if (!nzchar(normalized_value)) {
+    normalized_value <- "annotations"
+  }
+
+  normalized_value <- gsub("[^A-Za-z0-9._-]+", "_", normalized_value)
+  normalized_value <- gsub("_+", "_", normalized_value)
+  normalized_value <- gsub("^_+|_+$", "", normalized_value)
+
+  if (!nzchar(normalized_value)) {
+    "annotations"
+  } else {
+    normalized_value
+  }
+}
+
+get_user_annotations_file_name <- function(login) {
+  paste0(sanitize_storage_name(login), "_annotations.rds")
+}
+
+get_user_annotations_file_path <- function(login, data_dir = myEnv$data_dir) {
+  normalizePath(
+    file.path(data_dir, get_user_annotations_file_name(login)),
+    mustWork = FALSE
+  )
+}
+
+get_session_workspace_root <- function(workspace_id) {
+  normalized_workspace_id <- sanitize_storage_name(workspace_id)
+
+  normalizePath(
+    file.path(tempdir(), "blt_workspaces", normalized_workspace_id),
+    mustWork = FALSE
+  )
+}
+
+get_session_workspace_files_dir <- function(workspace_id) {
+  normalizePath(
+    file.path(get_session_workspace_root(workspace_id), "files"),
+    mustWork = FALSE
+  )
+}
+
+get_session_workspace_state_path <- function(workspace_id) {
+  normalizePath(
+    file.path(get_session_workspace_root(workspace_id), "workspace_state.rds"),
+    mustWork = FALSE
+  )
+}
+
+set_session_workspace <- function(state, workspace_id) {
+  normalized_workspace_id <- sanitize_storage_name(workspace_id)
+  workspace_root <- get_session_workspace_root(normalized_workspace_id)
+  workspace_files_dir <- get_session_workspace_files_dir(normalized_workspace_id)
+
+  dir.create(workspace_files_dir, recursive = TRUE, showWarnings = FALSE)
+
+  state$session_workspace_id <- normalized_workspace_id
+  state$session_temp_dir <- workspace_root
+  state$session_files_dir <- workspace_files_dir
+  state$session_files_resource_path <- paste0(
+    "/temp_dir/blt_workspaces/",
+    normalized_workspace_id,
+    "/files"
+  )
+
+  invisible(state)
+}
+
+read_session_workspace_state <- function(workspace_id) {
+  workspace_state_path <- get_session_workspace_state_path(workspace_id)
+  if (!file.exists(workspace_state_path)) {
+    return(NULL)
+  }
+
+  tryCatch(
+    readRDS(workspace_state_path),
+    error = function(e) NULL
+  )
+}
+
+update_session_workspace_state <- function(workspace_id, ...) {
+  normalized_workspace_id <- sanitize_storage_name(workspace_id)
+  if (!nzchar(normalized_workspace_id)) {
+    return(NULL)
+  }
+
+  workspace_root <- get_session_workspace_root(normalized_workspace_id)
+  workspace_state_path <- get_session_workspace_state_path(normalized_workspace_id)
+  existing_state <- read_session_workspace_state(normalized_workspace_id)
+  if (is.null(existing_state) || !is.list(existing_state)) {
+    existing_state <- list()
+  }
+
+  updates <- list(...)
+  if (length(updates) > 0) {
+    for (update_name in names(updates)) {
+      existing_state[[update_name]] <- updates[[update_name]]
+    }
+  }
+
+  dir.create(workspace_root, recursive = TRUE, showWarnings = FALSE)
+  saveRDS(existing_state, workspace_state_path)
+
+  invisible(existing_state)
+}
+
+clear_session_workspace <- function(workspace_id) {
+  normalized_workspace_id <- sanitize_storage_name(workspace_id)
+  if (!nzchar(normalized_workspace_id)) {
+    return(FALSE)
+  }
+
+  workspace_root <- get_session_workspace_root(normalized_workspace_id)
+  if (!dir.exists(workspace_root)) {
+    return(TRUE)
+  }
+
+  unlink(workspace_root, recursive = TRUE, force = TRUE)
+  !dir.exists(workspace_root)
+}
+
+get_config_refresh_signal_path <- function(project_config_file = myEnv$project_config_file) {
+  normalizePath(
+    file.path(dirname(project_config_file), ".blt_config_refresh.rds"),
+    mustWork = FALSE
+  )
+}
+
+ensure_config_refresh_signal <- function(project_config_file = myEnv$project_config_file) {
+  signal_path <- get_config_refresh_signal_path(project_config_file)
+
+  dir.create(dirname(signal_path), recursive = TRUE, showWarnings = FALSE)
+
+  if (!file.exists(signal_path)) {
+    saveRDS(
+      list(token = "", mode = "refresh", triggered_at = NULL),
+      signal_path
+    )
+  }
+
+  signal_path
+}
+
+read_config_refresh_signal <- function(project_config_file = myEnv$project_config_file) {
+  signal_path <- ensure_config_refresh_signal(project_config_file)
+  signal_payload <- tryCatch(
+    readRDS(signal_path),
+    error = function(e) NULL
+  )
+
+  if (is.null(signal_payload) || !is.list(signal_payload)) {
+    signal_payload <- list()
+  }
+
+  token <- ""
+  if (!is.null(signal_payload$token) && length(signal_payload$token) > 0 && !is.na(signal_payload$token[[1]])) {
+    token <- trimws(as.character(signal_payload$token[[1]]))
+  }
+
+  mode <- "refresh"
+  if (!is.null(signal_payload$mode) && length(signal_payload$mode) > 0 && !is.na(signal_payload$mode[[1]])) {
+    candidate_mode <- trimws(tolower(as.character(signal_payload$mode[[1]])))
+    if (candidate_mode %in% c("refresh", "reload")) {
+      mode <- candidate_mode
+    }
+  }
+
+  triggered_at <- NULL
+  if (!is.null(signal_payload$triggered_at)) {
+    triggered_at <- signal_payload$triggered_at
+  }
+
+  origin_session_token <- ""
+  if (!is.null(signal_payload$origin_session_token) &&
+      length(signal_payload$origin_session_token) > 0 &&
+      !is.na(signal_payload$origin_session_token[[1]])) {
+    origin_session_token <- trimws(as.character(signal_payload$origin_session_token[[1]]))
+  }
+
+  include_origin <- isTRUE(signal_payload$include_origin)
+
+  list(
+    token = token,
+    mode = mode,
+    triggered_at = triggered_at,
+    origin_session_token = origin_session_token,
+    include_origin = include_origin
+  )
+}
+
+broadcast_config_refresh <- function(
+    mode = c("refresh", "reload"),
+    project_config_file = myEnv$project_config_file,
+    origin_session_token = NULL,
+    include_origin = FALSE
+) {
+  mode <- match.arg(mode)
+
+  normalized_origin_session_token <- ""
+  if (!is.null(origin_session_token) &&
+      length(origin_session_token) > 0 &&
+      !is.na(origin_session_token[[1]])) {
+    normalized_origin_session_token <- trimws(as.character(origin_session_token[[1]]))
+  }
+
+  signal_payload <- list(
+    token = paste0(
+      format(Sys.time(), "%Y%m%d%H%M%OS6"),
+      "-",
+      sprintf("%06d", sample.int(999999, 1))
+    ),
+    mode = mode,
+    triggered_at = Sys.time(),
+    origin_session_token = normalized_origin_session_token,
+    include_origin = isTRUE(include_origin)
+  )
+
+  saveRDS(
+    signal_payload,
+    ensure_config_refresh_signal(project_config_file)
+  )
+
+  invisible(signal_payload)
+}
 
 
 # Function to initialize the user config if it doesn't exist
@@ -219,8 +454,8 @@ initialize_config <- function() {
   lookup_file <- normalizePath(file.path(tools::R_user_dir("blt", which = "data"), paste0("username_lookup.csv")), mustWork = FALSE)
 
   default_username_lookup <- data.frame(
-    user_name = c("User 1", "User 2", "User 3", "User 4"),
-    value = c("User_1", "User_2", "User_3", "User_4"),
+    user_name = c("Admin", "User 1", "User 2", "User 3", "User 4"),
+    value = c("Admin", "User_1", "User_2", "User_3", "User_4"),
     stringsAsFactors = FALSE
   )
 
@@ -237,8 +472,14 @@ initialize_config <- function() {
         all(c("user_name", "value") %in% names(existing_lookup))) {
       old_default_names <- c("Guest Person", "Jane Doh", "Jack Smith")
       old_default_values <- c("Guest_Person", "Jane_Doh", "Jack_Smith")
-      if (identical(existing_lookup$user_name, old_default_names) &&
-          identical(existing_lookup$value, old_default_values)) {
+      previous_default_names <- c("User 1", "User 2", "User 3", "User 4")
+      previous_default_values <- c("User_1", "User_2", "User_3", "User_4")
+      if (
+        (identical(existing_lookup$user_name, old_default_names) &&
+         identical(existing_lookup$value, old_default_values)) ||
+        (identical(existing_lookup$user_name, previous_default_names) &&
+         identical(existing_lookup$value, previous_default_values))
+      ) {
         write_default_lookup <- TRUE
       }
     }

@@ -62,6 +62,7 @@ ENV BLT_PROJECT_DIR=/data/project
 ENV BLT_SEED_PROJECT_DIR=/workspace/resources/seed-project
 ENV BLT_PROJECT_SETTINGS_TEMPLATE=/workspace/infra/docker/config/container-project-settings.yml
 ENV BLT_GENERATED_PROJECT_SETTINGS=/tmp/blt-project-settings.yml
+ENV BLT_AUTH_USERS_TEMPLATE=/workspace/infra/docker/config/auth_users.csv
 ENV BLT_EXPORT_DIR=/exports
 ENV BLT_EXPORT_ROOT_NAME="Export Folder"
 ENV BLT_HIDE_IMAGE_EXPORT_BUTTONS=true

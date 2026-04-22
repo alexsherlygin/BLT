@@ -56,7 +56,7 @@ is_config_true <- function(val) {
 }
 
 # save the user config
-save_user_config <- function(config_var){
+save_user_config <- function(config_var, r){
   #print("user config saved!")
   req(r$config, myEnv$project_config_file)
   configr::write.config(config.dat = r$config, file.path = myEnv$project_config_file, write.type = "yaml", indent = 4)
@@ -64,7 +64,7 @@ save_user_config <- function(config_var){
 }
 
 # called on clicking the 'Apply Settings' button in the settings form
-refresh_user_config <- function(session){
+refresh_user_config <- function(session, r){
   #print("refreshing user config")
   #session$reload()
   #Use runjs to run JavaScript code for reloading the page
@@ -207,6 +207,33 @@ check_for_saved_data <- function(dataFileToFind){
   return(dataFile)
 }
 
+migrate_legacy_annotations_for_user <- function(user_login, user_name, data_dir = myEnv$data_dir) {
+  target_file <- get_user_annotations_file_path(user_login, data_dir = data_dir)
+  if (file.exists(target_file)) {
+    return(target_file)
+  }
+
+  legacy_file <- normalizePath(
+    file.path(data_dir, myEnv$config$annotationsFile),
+    mustWork = FALSE
+  )
+  if (!file.exists(legacy_file)) {
+    return(target_file)
+  }
+
+  legacy_data <- tryCatch(readRDS(legacy_file), error = function(e) NULL)
+  if (is.null(legacy_data) || !is.data.frame(legacy_data) || !"user" %in% names(legacy_data)) {
+    return(target_file)
+  }
+
+  migrated_data <- legacy_data[legacy_data$user == user_name, , drop = FALSE]
+  if (nrow(migrated_data) > 0) {
+    saveRDS(migrated_data, file = target_file)
+  }
+
+  target_file
+}
+
 # create blank annotation data file
 create_user_dataframe <- function(){
   df <- data.frame(user=character(),id=double(),imagefile=character(),feature_type=character(),radius=numeric(),geometry=character(),dd1=character(),dd2=character(),dd3=character(),dd4=character(),dd5=character(),dd6=character(),dd7=character(),dd8=character(),stringsAsFactors=FALSE)
@@ -214,9 +241,72 @@ create_user_dataframe <- function(){
   return(df)
 }
 
+get_all_annotation_file_paths <- function(
+    data_dir = myEnv$data_dir,
+    auth_users = NULL,
+    legacy_annotations_file = myEnv$config$annotationsFile
+) {
+  data_dir <- normalizePath(data_dir, mustWork = FALSE)
+  dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
+
+  if (is.null(auth_users)) {
+    auth_users <- tryCatch(load_auth_users(), error = function(e) NULL)
+  }
+
+  annotation_paths <- character(0)
+
+  if (!is.null(auth_users) && is.data.frame(auth_users) && "login" %in% names(auth_users)) {
+    user_paths <- vapply(
+      auth_users$login,
+      function(login) get_user_annotations_file_path(login, data_dir = data_dir),
+      character(1)
+    )
+    annotation_paths <- c(annotation_paths, user_paths)
+  }
+
+  existing_user_files <- list.files(
+    data_dir,
+    pattern = "_annotations\\.rds$",
+    full.names = TRUE
+  )
+  annotation_paths <- c(annotation_paths, existing_user_files)
+
+  if (!is.null(legacy_annotations_file) && nzchar(legacy_annotations_file)) {
+    annotation_paths <- c(
+      annotation_paths,
+      normalizePath(file.path(data_dir, legacy_annotations_file), mustWork = FALSE)
+    )
+  }
+
+  unique(normalizePath(annotation_paths, mustWork = FALSE))
+}
+
+clear_all_saved_annotations <- function(
+    data_dir = myEnv$data_dir,
+    auth_users = NULL,
+    legacy_annotations_file = myEnv$config$annotationsFile
+) {
+  annotation_paths <- get_all_annotation_file_paths(
+    data_dir = data_dir,
+    auth_users = auth_users,
+    legacy_annotations_file = legacy_annotations_file
+  )
+  blank_annotations <- create_user_dataframe()
+
+  for (annotation_path in annotation_paths) {
+    dir.create(dirname(annotation_path), recursive = TRUE, showWarnings = FALSE)
+    saveRDS(blank_annotations, annotation_path)
+  }
+
+  invisible(annotation_paths)
+}
+
 # check for annotations on image dropdown change
-check_for_annotations <- function(myUserAnnotationsData, myCurrentImage){
+check_for_annotations <- function(myUserAnnotationsData, myCurrentImage, myUser = NULL){
   newdata <- myUserAnnotationsData[which(myUserAnnotationsData$imagefile==myCurrentImage), ]
+  if (!is.null(myUser) && "user" %in% colnames(newdata)) {
+    newdata <- newdata[which(newdata$user == myUser), , drop = FALSE]
+  }
   #utils::str(newdata)
   return(newdata)
 }
@@ -304,7 +394,7 @@ save_annotations <- function(myAnnotations, myAnnotationFileName){
 }
 
 # add a new annotation to the control form
-add_annotations_form <- function(input, myActiveAnnotations, myId, myFeatureType, myGeometry, myRadius, myDD1, myDD2, myDD3, myDD4, myDD5, myDD6, myDD7, myDD8){
+add_annotations_form <- function(input, myActiveAnnotations, myId, myFeatureType, myGeometry, myRadius, myDD1, myDD2, myDD3, myDD4, myDD5, myDD6, myDD7, myDD8, r){
 
   #r$new_annotation_id <- myId
   myActiveAnnotations(c(myId, myActiveAnnotations()))
@@ -717,7 +807,7 @@ add_annotations_form <- function(input, myActiveAnnotations, myId, myFeatureType
 }
 
 # clear all annotations from the form NOT the data frame
-clear_annotations_form <- function() {
+clear_annotations_form <- function(r) {
   #print("clear_annotations_form called")
   # only remove a module if there is at least one active annotation shown
   if (length(r$active_annotations()) > 0) {
@@ -742,9 +832,7 @@ clear_annotations_form <- function() {
 # Functions for mapping panel
 
 # Copy uploaded image files into tempdir()/files/
-copy_uploaded_images <- function(uploaded_files) {
-  temp_dir <- tempdir()
-  filesFolder <- file.path(temp_dir, "files")
+copy_uploaded_images <- function(uploaded_files, filesFolder) {
 
   # Clean up previous files
   if (dir.exists(filesFolder)) {
@@ -840,7 +928,7 @@ loadBaseLeafletMap <- function(kml="") {
 }
 
 # triggered to add the current image to the map
-addCurrentImageToMap <- function(){
+addCurrentImageToMap <- function(r){
   #print("addCurrentImageToMap called")
   req(r$current_image_metadata, r$current_map_zoom)
 
@@ -882,7 +970,7 @@ clear_drawn_annotation_from_map <- function(session, layerId) {
 }
 
 # add annotation to map
-add_annotations_to_map <- function(){
+add_annotations_to_map <- function(r){
   #print("add_annotations_to_map called")
 
   #print("new map layer added")
@@ -992,7 +1080,7 @@ add_annotations_to_map <- function(){
   return(myMapProxy)
 }
 
-remove_map_item <- function(){
+remove_map_item <- function(r){
   #print("remove_map_item called")
   myMapProxy <- leaflet::leafletProxy("mymap") %>%
     leaflet::removeMarkerFromCluster(layerId=r$remove_leafletMap_item, clusterId = "Whole-Image-Annotations") %>%
@@ -1002,7 +1090,7 @@ remove_map_item <- function(){
   return(myMapProxy)
 }
 
-remove_360_item <- function(){
+remove_360_item <- function(r){
   #print("remove_360_item called")
   my360Proxy <- leaflet::leafletProxy("leaflet360") %>%
     leaflet::removeMarker(r$remove_leaflet360_item) %>%
@@ -1040,10 +1128,10 @@ loadBaseLeaflet360 <- function() {
 }
 
 # add current image to 360 leaflet
-addCurrentImageToLeaflet360 <- function(){
+addCurrentImageToLeaflet360 <- function(r){
   #print(paste0("addCurrentImageToLeaflet360 called: r$current_image: ", r$current_image))
   # Prepare the dynamic image URL
-  imageURL <- paste0("'/temp_dir/files/", r$current_image, "'")
+  imageURL <- paste0("'", r$session_files_resource_path, "/", r$current_image, "'")
   # Define the bounds of the image
   imageWidth <- r$current_image_metadata$ImageWidth  # Width of the image
   imageHeight <- r$current_image_metadata$ImageHeight  # Height of the image
@@ -1104,7 +1192,7 @@ addCurrentImageToLeaflet360 <- function(){
 }
 
 # add annotation to leaflet 360
-add_annotations_to_360 <- function(){
+add_annotations_to_360 <- function(r){
   #print("add_annotations_to_360 called")
   #print("new 360 layer added")
 
@@ -1120,7 +1208,7 @@ add_annotations_to_360 <- function(){
 
   #View(r$current_annotation_360polygons)
 
-  my360Proxy <- leaflet::leafletProxy("leaflet360")# %>%
+  my360Proxy <- leaflet::leafletProxy("leaflet360")
 
   #Check and add markers if present
   if(any(sf::st_geometry_type(r$current_annotation_360markers) %in% c("POINT", "MULTIPOINT"))) {
@@ -1221,23 +1309,24 @@ create_form_icons <- function() {
 ##############
 
 # function for outputting cropped polygons
-create_cropped_polygons_from_360_images <- function(annotations_export_dir){
+create_cropped_polygons_from_360_images <- function(annotations_export_dir, r){
   req(r$user_annotations_data, r$current_annotation_360polygons, r$current_image, r$current_image_metadata)
 
   export_cropped_polygons_for_image(
     annotations_export_dir = annotations_export_dir,
     image_name = r$current_image,
     image_metadata = r$current_image_metadata,
-    df_polygons = r$current_annotation_360polygons
+    df_polygons = r$current_annotation_360polygons,
+    r = r
   )
 }
 
-export_cropped_polygons_for_image <- function(annotations_export_dir, image_name, image_metadata, df_polygons) {
+export_cropped_polygons_for_image <- function(annotations_export_dir, image_name, image_metadata, df_polygons, r) {
   if (is.null(df_polygons) || nrow(df_polygons) == 0) {
     return(invisible(0))
   }
 
-  image_path <- paste0(tempdir(), "/files/", image_name)
+  image_path <- file.path(r$session_files_dir, image_name)
   if (!file.exists(image_path)) {
     return(invisible(0))
   }
@@ -1298,7 +1387,7 @@ export_cropped_polygons_for_image <- function(annotations_export_dir, image_name
   invisible(num_polygons)
 }
 
-create_cropped_polygons_from_all_360_images <- function(annotations_export_dir) {
+create_cropped_polygons_from_all_360_images <- function(annotations_export_dir, r) {
   req(r$user_annotations_data, r$imgs_lst, r$imgs_metadata)
 
   all_polygon_annotations <- r$user_annotations_data[r$user_annotations_data$feature_type == "Polygon-360", ]
@@ -1332,7 +1421,8 @@ create_cropped_polygons_from_all_360_images <- function(annotations_export_dir) 
         annotations_export_dir = annotations_export_dir,
         image_name = image_name,
         image_metadata = image_metadata,
-        df_polygons = image_polygons
+        df_polygons = image_polygons,
+        r = r
       )
 
       if (exported_for_image > 0) {

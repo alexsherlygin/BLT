@@ -62,17 +62,57 @@ mod_360_image_ui <- function(id){
       )
       )
     ),
-    # Keyboard shortcuts for image navigation:
-    # Z -> previous image, X -> next image, A -> toggle draw/view mode.
+    # Keyboard shortcuts for image navigation and image-panel actions:
+    # Z -> previous image, X -> next image, A -> toggle draw/view mode,
+    # E -> select rectangle annotation tool in Drawing Mode, S -> fullscreen.
     tags$script(HTML(sprintf(
       "(function() {
         var prevId = '%s';
         var nextId = '%s';
         var frameId = '%s';
         var toggleId = '%s';
+        var leafletId = '%s';
+        var panoContainerId = '%s';
         var bindKey = '__pano_nav_bound_' + prevId;
         if (window[bindKey]) return;
         window[bindKey] = true;
+
+        function isDrawingModeActive() {
+          var panoContainer = document.getElementById(panoContainerId);
+          if (!panoContainer) return false;
+          return window.getComputedStyle(panoContainer).display === 'none';
+        }
+
+        function activateRectangleTool() {
+          if (!isDrawingModeActive()) return false;
+
+          var mapRoot = document.getElementById(leafletId);
+          if (!mapRoot) return false;
+
+          var rectIcon = mapRoot.querySelector('.leaflet-pm-toolbar .leaflet-pm-icon-rectangle');
+          if (rectIcon) {
+            var rectButton = rectIcon.closest('a, button, .button-container, .leaflet-buttons-control-button');
+            if (rectButton && typeof rectButton.click === 'function') {
+              rectButton.click();
+              return true;
+            }
+            if (typeof rectIcon.click === 'function') {
+              rectIcon.click();
+              return true;
+            }
+          }
+
+          try {
+            var widget = window.HTMLWidgets && window.HTMLWidgets.find ? window.HTMLWidgets.find('#' + leafletId) : null;
+            var map = widget && typeof widget.getMap === 'function' ? widget.getMap() : null;
+            if (map && map.pm && typeof map.pm.enableDraw === 'function') {
+              map.pm.enableDraw('Rectangle');
+              return true;
+            }
+          } catch (err) {}
+
+          return false;
+        }
 
         function onKeydown(e) {
           if (e.altKey || e.ctrlKey || e.metaKey) return;
@@ -86,8 +126,9 @@ mod_360_image_ui <- function(id){
           var isPrev = code === 'KeyZ' || key === 'z';
           var isNext = code === 'KeyX' || key === 'x';
           var isToggle = code === 'KeyA' || key === 'a';
+          var isRectangle = code === 'KeyE' || key === 'e';
           var isFullscreen = code === 'KeyS' || key === 's';
-          if (!isPrev && !isNext && !isToggle && !isFullscreen) return;
+          if (!isPrev && !isNext && !isToggle && !isRectangle && !isFullscreen) return;
 
           if (isFullscreen) {
             e.preventDefault();
@@ -98,6 +139,14 @@ mod_360_image_ui <- function(id){
               (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen).call(document);
             } else {
               (panel.requestFullscreen || panel.webkitRequestFullscreen || panel.mozRequestFullScreen || panel.msRequestFullscreen).call(panel);
+            }
+            return;
+          }
+
+          if (isRectangle) {
+            if (activateRectangleTool()) {
+              e.preventDefault();
+              e.stopPropagation();
             }
             return;
           }
@@ -144,7 +193,9 @@ mod_360_image_ui <- function(id){
       ns("prev_image"),
       ns("next_image"),
       ns("pano_iframe_frame"),
-      ns("togglePano")
+      ns("togglePano"),
+      ns("leaflet360"),
+      ns("panoContainer")
     ))),
 
     # Div to hold image navigation controls and action buttons
@@ -205,6 +256,11 @@ mod_360_image_server <- function(id, r){
     show_server_export_buttons <- !tolower(Sys.getenv("BLT_HIDE_IMAGE_EXPORT_BUTTONS", unset = "true")) %in% c("true", "1", "yes")
 
     ns <- session$ns
+    addCurrentImageToLeaflet360_impl <- addCurrentImageToLeaflet360
+    add_annotations_to_360_impl <- add_annotations_to_360
+    remove_360_item_impl <- remove_360_item
+    create_cropped_polygons_from_360_images_impl <- create_cropped_polygons_from_360_images
+    create_cropped_polygons_from_all_360_images_impl <- create_cropped_polygons_from_all_360_images
 
     #set the image dropdown to load when the kmz is unzipped and r$imgs_lst is changed
     observe({
@@ -291,7 +347,7 @@ mod_360_image_server <- function(id, r){
       #   #image_to_use <- file.path(temp_dir, r$current_image)
       # }
 
-      image_to_use <- paste0("/temp_dir/files/", r$current_image)
+      image_to_use <- paste0(r$session_files_resource_path, "/", r$current_image)
       #print(r$current_image)
       #temp_dir <- tools::R_user_dir("blt")
 
@@ -388,7 +444,7 @@ mod_360_image_server <- function(id, r){
         #print(annotations_export_dir)
 
         #added progressIndicator in function
-        create_cropped_polygons_from_360_images(annotations_export_dir)
+        create_cropped_polygons_from_360_images_impl(annotations_export_dir, r)
 
         #export_success <-  create_cropped_polygons_from_360_images(annotations_export_dir)
 
@@ -431,7 +487,7 @@ mod_360_image_server <- function(id, r){
         save_annotations(myAnnotations=r$user_annotations_data, myAnnotationFileName = r$user_annotations_file_name)
 
         annotations_export_dir <- shinyFiles::parseDirPath(export_roots, input$exportAllPolygonsAsImages)
-        exported_count <- create_cropped_polygons_from_all_360_images(annotations_export_dir)
+        exported_count <- create_cropped_polygons_from_all_360_images_impl(annotations_export_dir, r)
 
         shinyWidgets::show_alert(
           title = "Export Successful!",
@@ -456,17 +512,17 @@ mod_360_image_server <- function(id, r){
     observe({
       #print("r$current_image changed: mod_360_image")
       req(r$imgs_lst, r$current_image)
-      output$leaflet360 <- addCurrentImageToLeaflet360()
+      output$leaflet360 <- addCurrentImageToLeaflet360_impl(r)
 
       #TODO check if this fixes the current_annotations
       r$current_annotation_360markers <- NULL
       r$current_annotation_360polygons <- NULL
 
-      previous_annotations_360 <- check_for_annotations(r$user_annotations_data, r$current_image)
+      previous_annotations_360 <- check_for_annotations(r$user_annotations_data, r$current_image, r$user_name)
 
       if(nrow(previous_annotations_360 > 1)){
         #print("annotations already exist")
-        add_annotations_to_360()
+        add_annotations_to_360_impl(r)
       }
 
       # code for auto updating dropdown if leaflet_map is clicked
@@ -531,11 +587,11 @@ mod_360_image_server <- function(id, r){
 
 
     # triggered to add a single item to the 360 from control form
-    observe({
-      #print("new 360 item: leaflet360")
-      #print(r$new_leafletMap_item)
+      observe({
+        #print("new 360 item: leaflet360")
+        #print(r$new_leafletMap_item)
 
-      add_annotations_to_360()
+      add_annotations_to_360_impl(r)
 
       #TODO NOT SURE THIS IS THE CORRECT PLACE TO HAVE THIS
       #call the function to add the overlay for an equirectangular
@@ -544,19 +600,19 @@ mod_360_image_server <- function(id, r){
     }) %>% bindEvent(r$new_leaflet360_item)
 
     # remove_leaflet_item
-    observe({
-      #print("remove_leaflet_item: 360")
-      req(r$remove_leaflet360_item)
-      remove_360_item()
+      observe({
+        #print("remove_leaflet_item: 360")
+        req(r$remove_leaflet360_item)
+      remove_360_item_impl(r)
 
     }) %>% bindEvent(r$remove_leaflet360_item)
 
     # refresh user config settings on applySettingsButton click
-    observe({
-      #print("refresh_leaflet_item: 360")
-      req(r$refresh_user_config, r$current_image)
-      #output$leaflet360 <- addCurrentImageToLeaflet360()
-      add_annotations_to_360()
+      observe({
+        #print("refresh_leaflet_item: 360")
+        req(r$refresh_user_config, r$current_image)
+        #output$leaflet360 <- addCurrentImageToLeaflet360()
+      add_annotations_to_360_impl(r)
     }) %>% bindEvent(r$refresh_user_config)
 
   })
