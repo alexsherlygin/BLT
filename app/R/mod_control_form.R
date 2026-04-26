@@ -982,8 +982,7 @@ mod_control_form_server <- function(id, r){
     check_for_annotations <- function(myUserAnnotationsData, myCurrentImage) {
       check_for_annotations_impl(
         myUserAnnotationsData = myUserAnnotationsData,
-        myCurrentImage = myCurrentImage,
-        myUser = r$user_name
+        myCurrentImage = myCurrentImage
       )
     }
 
@@ -2438,7 +2437,7 @@ mod_control_form_server <- function(id, r){
 
       previous_annotations <- check_for_annotations(r$user_annotations_data, r$current_image)
 
-      if(nrow(previous_annotations > 1)){
+      if(nrow(previous_annotations) > 0){
         #print("annotations already exist")
         for(i in 1:nrow(previous_annotations)){
           #View(previous_annotations)
@@ -2473,7 +2472,7 @@ mod_control_form_server <- function(id, r){
 
       previous_annotations <- check_for_annotations(r$user_annotations_data, r$current_image)
 
-      if(nrow(previous_annotations > 1)){
+      if(nrow(previous_annotations) > 0){
         #print("annotations already exist")
         for(i in 1:nrow(previous_annotations)){
           #View(previous_annotations)

@@ -138,14 +138,7 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
         r$current_map_zoom <- input$mymap_zoom
 
         addCurrentImageToMap_impl(r)
-
-        previous_annotations_map <- check_for_annotations(r$user_annotations_data, r$current_image, r$user_name)
-
-        if(nrow(previous_annotations_map > 1)){
-          #print("annotations already exist")
-          add_annotations_to_map_impl(r)
-
-        }
+        add_annotations_to_map_impl(r, session = session)
 
       }) %>% bindEvent(r$current_image)
 
@@ -196,7 +189,14 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
       observe({
         #print("new map item: leaflet")
         req(r$new_leafletMap_item)
-        add_annotations_to_map_impl(r)
+        selected_image <- shiny::isolate(r$current_image)
+        session$onFlushed(function() {
+          shiny::isolate({
+            if (identical(r$current_image, selected_image)) {
+            add_annotations_to_map_impl(r, session = session)
+            }
+          })
+        }, once = TRUE)
       }) %>% bindEvent(r$new_leafletMap_item)
 
 
@@ -204,7 +204,7 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
       observe({
         #print("remove_map_item: leaflet")
         req(r$remove_leafletMap_item)
-        remove_map_item_impl(r)
+        remove_map_item_impl(r, session = session)
       }) %>% bindEvent(r$remove_leafletMap_item)
 
       # observe clicks on the map (kml) loaded when someone clicks on a yellow marker
@@ -223,7 +223,7 @@ mod_leaflet_map_server <- function(id, r, map_enabled = TRUE){
         req(r$refresh_user_config, r$current_image)
         output$mymap <- loadBaseLeafletMap(kml="")
         addCurrentImageToMap_impl(r)
-        add_annotations_to_map_impl(r)
+        add_annotations_to_map_impl(r, session = session)
       }) %>% bindEvent(r$refresh_user_config)
     }
 

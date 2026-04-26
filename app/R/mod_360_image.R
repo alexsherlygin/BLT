@@ -518,12 +518,14 @@ mod_360_image_server <- function(id, r){
       r$current_annotation_360markers <- NULL
       r$current_annotation_360polygons <- NULL
 
-      previous_annotations_360 <- check_for_annotations(r$user_annotations_data, r$current_image, r$user_name)
-
-      if(nrow(previous_annotations_360 > 1)){
-        #print("annotations already exist")
-        add_annotations_to_360_impl(r)
-      }
+      selected_image <- shiny::isolate(r$current_image)
+      session$onFlushed(function() {
+        shiny::isolate({
+          if (identical(r$current_image, selected_image)) {
+            add_annotations_to_360_impl(r, session = session)
+          }
+        })
+      }, once = TRUE)
 
       # code for auto updating dropdown if leaflet_map is clicked
       shinyWidgets::updatePickerInput(
@@ -591,7 +593,14 @@ mod_360_image_server <- function(id, r){
         #print("new 360 item: leaflet360")
         #print(r$new_leafletMap_item)
 
-      add_annotations_to_360_impl(r)
+      selected_image <- shiny::isolate(r$current_image)
+      session$onFlushed(function() {
+        shiny::isolate({
+          if (identical(r$current_image, selected_image)) {
+            add_annotations_to_360_impl(r, session = session)
+          }
+        })
+      }, once = TRUE)
 
       #TODO NOT SURE THIS IS THE CORRECT PLACE TO HAVE THIS
       #call the function to add the overlay for an equirectangular
@@ -603,7 +612,7 @@ mod_360_image_server <- function(id, r){
       observe({
         #print("remove_leaflet_item: 360")
         req(r$remove_leaflet360_item)
-      remove_360_item_impl(r)
+      remove_360_item_impl(r, session = session)
 
     }) %>% bindEvent(r$remove_leaflet360_item)
 
@@ -612,7 +621,7 @@ mod_360_image_server <- function(id, r){
         #print("refresh_leaflet_item: 360")
         req(r$refresh_user_config, r$current_image)
         #output$leaflet360 <- addCurrentImageToLeaflet360()
-      add_annotations_to_360_impl(r)
+      add_annotations_to_360_impl(r, session = session)
     }) %>% bindEvent(r$refresh_user_config)
 
   })

@@ -970,24 +970,33 @@ clear_drawn_annotation_from_map <- function(session, layerId) {
 }
 
 # add annotation to map
-add_annotations_to_map <- function(r){
+add_annotations_to_map <- function(r, session = shiny::getDefaultReactiveDomain()){
   #print("add_annotations_to_map called")
+
+  req(r$user_annotations_data, r$current_image)
+
+  current_image_annotations <- check_for_annotations(
+    r$user_annotations_data,
+    r$current_image
+  )
 
   #print("new map layer added")
   # check for whole image annotations
-  r$current_annotation_whole_images <- r$user_annotations_data %>%
+  r$current_annotation_whole_images <- current_image_annotations %>%
     dplyr::filter(imagefile == r$current_image & feature_type %in% c("Point-whole-image-annotation")) %>%
     sf::st_as_sf(., wkt = "geometry")
   # check for map annotations
-  r$current_annotation_markers <- r$user_annotations_data %>%
+  r$current_annotation_markers <- current_image_annotations %>%
     dplyr::filter(imagefile == r$current_image & feature_type %in% c("Point-map")) %>%
     sf::st_as_sf(., wkt = "geometry")
   # check for polygon annotations
-  r$current_annotation_polygons <- r$user_annotations_data %>%
+  r$current_annotation_polygons <- current_image_annotations %>%
     dplyr::filter(imagefile == r$current_image & feature_type %in% c("Polygon-map")) %>%
     sf::st_as_sf(., wkt = "geometry")
 
-  myMapProxy <- leaflet::leafletProxy("mymap")
+  myMapProxy <- leaflet::leafletProxy("mymap", session = session) %>%
+    leaflet::clearGroup("Map-Annotations") %>%
+    leaflet::clearGroup("Whole-Image-Annotations")
 
   #Check and add markers if present
   if(any(sf::st_geometry_type(r$current_annotation_markers) %in% c("POINT", "MULTIPOINT"))) {
@@ -1080,9 +1089,9 @@ add_annotations_to_map <- function(r){
   return(myMapProxy)
 }
 
-remove_map_item <- function(r){
+remove_map_item <- function(r, session = shiny::getDefaultReactiveDomain()){
   #print("remove_map_item called")
-  myMapProxy <- leaflet::leafletProxy("mymap") %>%
+  myMapProxy <- leaflet::leafletProxy("mymap", session = session) %>%
     leaflet::removeMarkerFromCluster(layerId=r$remove_leafletMap_item, clusterId = "Whole-Image-Annotations") %>%
     leaflet::removeMarker(r$remove_leafletMap_item) %>%
     leaflet::removeShape(r$remove_leafletMap_item)
@@ -1090,9 +1099,9 @@ remove_map_item <- function(r){
   return(myMapProxy)
 }
 
-remove_360_item <- function(r){
+remove_360_item <- function(r, session = shiny::getDefaultReactiveDomain()){
   #print("remove_360_item called")
-  my360Proxy <- leaflet::leafletProxy("leaflet360") %>%
+  my360Proxy <- leaflet::leafletProxy("leaflet360", session = session) %>%
     leaflet::removeMarker(r$remove_leaflet360_item) %>%
     leaflet::removeShape(r$remove_leaflet360_item)
 
@@ -1192,23 +1201,30 @@ addCurrentImageToLeaflet360 <- function(r){
 }
 
 # add annotation to leaflet 360
-add_annotations_to_360 <- function(r){
+add_annotations_to_360 <- function(r, session = shiny::getDefaultReactiveDomain()){
   #print("add_annotations_to_360 called")
   #print("new 360 layer added")
 
-  req(r$user_annotations_data)
+  req(r$user_annotations_data, r$current_image)
+
+  current_image_annotations <- check_for_annotations(
+    r$user_annotations_data,
+    r$current_image
+  )
+
   # check for map annotations
-  r$current_annotation_360markers <- r$user_annotations_data %>%
+  r$current_annotation_360markers <- current_image_annotations %>%
     dplyr::filter(imagefile == r$current_image & feature_type %in% c("Point-360")) %>%
     sf::st_as_sf(., wkt = "geometry")
   # check for polygon annotations
-  r$current_annotation_360polygons <- r$user_annotations_data %>%
+  r$current_annotation_360polygons <- current_image_annotations %>%
     dplyr::filter(imagefile == r$current_image & feature_type %in% c("Polygon-360")) %>%
     sf::st_as_sf(., wkt = "geometry")
 
   #View(r$current_annotation_360polygons)
 
-  my360Proxy <- leaflet::leafletProxy("leaflet360")
+  my360Proxy <- leaflet::leafletProxy("leaflet360", session = session) %>%
+    leaflet::clearGroup("360-Annotations")
 
   #Check and add markers if present
   if(any(sf::st_geometry_type(r$current_annotation_360markers) %in% c("POINT", "MULTIPOINT"))) {
