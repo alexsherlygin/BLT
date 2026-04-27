@@ -27,6 +27,7 @@ docker compose up --build
 
 The Compose setup includes a container health check and an `autoheal` sidecar so BLT can be restarted automatically if the app stops answering HTTP requests or stops updating its internal heartbeat.
 It also includes a basic monitoring and alerting stack with `Prometheus`, `Alertmanager`, `blackbox_exporter`, and `node_exporter`, with Prometheus exposed on port `9090` and Alertmanager on port `9093` by default.
+Container lifecycle monitoring is prepared through `cAdvisor`, exposed on port `8081` by default, for BLT container start and restart alert rules.
 Telegram delivery can be enabled by setting `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in a local `.env` file before restarting `alertmanager`.
 Email delivery can also be enabled from the local `.env` by setting `ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`, and `SMTP_SMARTHOST`, with optional SMTP auth variables when the mail server requires authentication.
 

@@ -21,6 +21,28 @@ groups:
           summary: "BLT HTTP probe is slow"
           description: "Average BLT HTTP probe duration has been above 2 seconds for 10 minutes."
 
+  - name: blt-container-lifecycle
+    rules:
+      - alert: BLTContainerRecentlyStarted
+        expr: time() - container_start_time_seconds{job="cadvisor",name="blt-blt-1"} < 120
+        for: 0m
+        labels:
+          severity: info
+          service: blt
+        annotations:
+          summary: "BLT container started recently"
+          description: "The BLT container start time is less than 2 minutes old, indicating a recent launch or recovery."
+
+      - alert: BLTContainerRestartDetected
+        expr: changes(container_start_time_seconds{job="cadvisor",name="blt-blt-1"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: blt
+        annotations:
+          summary: "BLT container restart detected"
+          description: "The BLT container start time changed within the last 15 minutes, indicating at least one restart."
+
   - name: monitoring-stack
     rules:
       - alert: NodeExporterDown
@@ -42,6 +64,16 @@ groups:
         annotations:
           summary: "blackbox_exporter is down"
           description: "Prometheus cannot scrape blackbox_exporter for more than 2 minutes."
+
+      - alert: CadvisorDown
+        expr: up{job="cadvisor"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "cAdvisor is down"
+          description: "Prometheus cannot scrape cAdvisor for more than 2 minutes."
 
       - alert: AlertmanagerDown
         expr: up{job="alertmanager"} == 0

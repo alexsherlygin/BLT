@@ -109,6 +109,7 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - The Compose setup now also includes a basic monitoring layer:
 - `prometheus` for metrics collection on port `9090`
 - `alertmanager` for alert routing on port `9093`
+- `cadvisor` for Docker container lifecycle and resource metrics on port `8081`
 - `blackbox_exporter` for external-style HTTP probing of `http://blt:8090/`
 - `node_exporter` for host-level CPU, memory, disk, and filesystem metrics
 - Prometheus configuration lives under `infra/monitoring/prometheus/`, and blackbox exporter configuration lives under `infra/monitoring/blackbox/`.
@@ -117,6 +118,7 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - The default Alertmanager receiver is intentionally local-only for now, so alerts are visible in Alertmanager even before Slack, Telegram, or email delivery is configured.
 - Telegram delivery can be enabled without committing secrets to git by creating a local `.env` file with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, then restarting the `alertmanager` service.
 - Email delivery can be enabled the same way by setting `ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`, and `SMTP_SMARTHOST` in the local `.env`, plus `SMTP_AUTH_USERNAME` and `SMTP_AUTH_PASSWORD` when SMTP authentication is required.
+- BLT container lifecycle alerts are defined from `cAdvisor` using `container_start_time_seconds{name="blt-blt-1"}` to detect recent starts and restarts.
 
 ## Persistence
 Current persistent app data is file-based and stored in user-specific R directories.

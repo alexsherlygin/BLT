@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
-    image: alexsherlygin/blt:V4.3
+    image: alexsherlygin/blt:V4.5
     labels:
       autoheal: "true"
     ports:
@@ -22,8 +22,8 @@ services:
       BLT_HEARTBEAT_MAX_AGE_SECS: ${BLT_HEARTBEAT_MAX_AGE_SECS:-90}
       BLT_HEALTHCHECK_HTTP_TIMEOUT_SECS: ${BLT_HEALTHCHECK_HTTP_TIMEOUT_SECS:-5}
     volumes:
-      - blt_project_data:/data/project
-      - ./docker-exports:/exports
+      - ${HOME}/Desktop/BLT-Data:/data/project
+      - ${HOME}/Desktop/BLT-Exports:/exports
     healthcheck:
       test: ["CMD", "/workspace/infra/docker/scripts/healthcheck.sh"]
       interval: 30s
@@ -92,7 +92,22 @@ services:
       - /:/rootfs:ro
     restart: unless-stopped
 
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=30s
+    ports:
+      - "${CADVISOR_PORT:-8081}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /run:/run:rw
+      - /var/run:/var/run:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    restart: unless-stopped
+
 volumes:
-  blt_project_data:
   prometheus_data:
   alertmanager_data:
