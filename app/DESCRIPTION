@@ -44,6 +44,7 @@ Imports:
     jpeg,
     jsonify,
     jsonlite,
+    later,
     leaflet,
     leaflet.extras,
     leafpm,

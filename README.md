@@ -25,4 +25,6 @@ docker build -f infra/docker/Dockerfile .
 docker compose up --build
 ```
 
+The Compose setup includes a container health check and an `autoheal` sidecar so BLT can be restarted automatically if the app stops answering HTTP requests or stops updating its internal heartbeat.
+
 Package-specific README and installation details are in [`app/README.md`](app/README.md).

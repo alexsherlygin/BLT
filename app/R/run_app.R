@@ -28,11 +28,19 @@ run_app <- function(
   uiPattern = "/",
   ...
 ) {
+  app_on_start <- function() {
+    start_app_heartbeat()
+
+    if (is.function(onStart)) {
+      onStart()
+    }
+  }
+
   with_golem_options(
     app = shinyApp(
       ui = app_ui,
       server = app_server,
-      onStart = onStart,
+      onStart = app_on_start,
       options = options,
       enableBookmarking = enableBookmarking,
       uiPattern = uiPattern

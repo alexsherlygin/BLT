@@ -103,6 +103,9 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - Export dialogs can be restricted to a single safe folder by setting `BLT_EXPORT_DIR` (Docker image default: `/exports`).
 - To let users export to the host Desktop without exposing container internals, bind-mount a host folder such as `$HOME/Desktop/BLT-Exports` to `/exports`.
 - The repo `compose.yml` uses a named volume for `/data/project` and bind-mounts `./docker-exports` to `/exports` for easy access from the host.
+- The Compose setup also defines a `healthcheck` for BLT and an `autoheal` sidecar that restarts the BLT container if it becomes `unhealthy`.
+- The current health check verifies that the BLT HTTP endpoint answers on the configured internal port and that the app heartbeat file is still being refreshed by the R process.
+- Default timing is intentionally conservative to reduce false restarts on a healthy but busy app: heartbeat every `15s`, heartbeat freshness window `90s`, HTTP timeout `5s`, health check interval `30s`, and `3` failed checks before the container becomes `unhealthy`.
 
 ## Persistence
 Current persistent app data is file-based and stored in user-specific R directories.

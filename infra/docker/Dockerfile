@@ -51,6 +51,7 @@ COPY . /workspace
 RUN R -e "remotes::install_local('/workspace/app', dependencies = TRUE, upgrade = 'never')"
 
 RUN chmod +x /workspace/infra/docker/scripts/docker_entrypoint.sh
+RUN chmod +x /workspace/infra/docker/scripts/healthcheck.sh
 RUN mkdir -p /data/project /exports
 
 ENV BLT_HOST=0.0.0.0
@@ -66,6 +67,10 @@ ENV BLT_AUTH_USERS_TEMPLATE=/workspace/infra/docker/config/auth_users.csv
 ENV BLT_EXPORT_DIR=/exports
 ENV BLT_EXPORT_ROOT_NAME="Export Folder"
 ENV BLT_HIDE_IMAGE_EXPORT_BUTTONS=true
+ENV BLT_HEARTBEAT_FILE=/tmp/blt-heartbeat
+ENV BLT_HEARTBEAT_INTERVAL_SECS=15
+ENV BLT_HEARTBEAT_MAX_AGE_SECS=90
+ENV BLT_HEALTHCHECK_HTTP_TIMEOUT_SECS=5
 
 EXPOSE 8090
 
