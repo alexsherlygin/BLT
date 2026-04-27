@@ -118,6 +118,7 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - The default Alertmanager receiver is intentionally local-only for now, so alerts are visible in Alertmanager even before Slack, Telegram, or email delivery is configured.
 - Telegram delivery can be enabled without committing secrets to git by creating a local `.env` file with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, then recreating the `alertmanager` service.
 - Alertmanager includes the bundled Zscaler CA certificates in its default `ALERTMANAGER_SSL_CERT_DIR` trust path for corporate TLS-inspected outbound Telegram traffic.
+- If outbound traffic must use a corporate proxy, configure `ALERTMANAGER_HTTP_PROXY`, `ALERTMANAGER_HTTPS_PROXY`, and `ALERTMANAGER_NO_PROXY` in `.env`; Telegram notifications use Alertmanager's `proxy_from_environment` HTTP client setting.
 - Email delivery can be enabled the same way by setting `ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`, and `SMTP_SMARTHOST` in the local `.env`, plus `SMTP_AUTH_USERNAME` and `SMTP_AUTH_PASSWORD` when SMTP authentication is required.
 - BLT container lifecycle alerts are defined from `cAdvisor` using `container_start_time_seconds{name="blt-blt-1"}` to detect recent starts and restarts.
 

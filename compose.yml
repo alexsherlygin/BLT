@@ -63,7 +63,14 @@ services:
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-}
       SSL_CERT_DIR: ${ALERTMANAGER_SSL_CERT_DIR:-/etc/ssl/certs:/etc/alertmanager/custom-certs}
+      HTTP_PROXY: ${ALERTMANAGER_HTTP_PROXY:-}
+      HTTPS_PROXY: ${ALERTMANAGER_HTTPS_PROXY:-}
+      NO_PROXY: ${ALERTMANAGER_NO_PROXY:-}
+      http_proxy: ${ALERTMANAGER_HTTP_PROXY:-}
+      https_proxy: ${ALERTMANAGER_HTTPS_PROXY:-}
+      no_proxy: ${ALERTMANAGER_NO_PROXY:-}
     ports:
       - "${ALERTMANAGER_PORT:-9093}:9093"
     volumes:

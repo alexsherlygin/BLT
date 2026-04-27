@@ -57,6 +57,17 @@ EOF
         chat_id_file: /alertmanager/runtime/secrets/telegram_chat_id
         send_resolved: true
         parse_mode: HTML
+        http_config:
+          proxy_from_environment: true
+EOF
+
+    if [ -n "${TELEGRAM_API_URL:-}" ]; then
+      cat >> "${runtime_config}" <<EOF
+        api_url: ${TELEGRAM_API_URL}
+EOF
+    fi
+
+    cat >> "${runtime_config}" <<'EOF'
         message: |
           {{ range .Alerts -}}
           <b>{{ .Status | toUpper }}</b> {{ .Labels.alertname }}
