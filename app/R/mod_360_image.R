@@ -14,11 +14,23 @@ mod_360_image_ui <- function(id){
     tags$head(
       tags$style(
         HTML(".shiny-notification {
-              height: 50px;
-              width: 200px;
-              position:fixed;
-              top: calc(50% - 25px);;
-              left: calc(50% - 100px);;
+              min-height: 50px;
+              width: min(340px, calc(100vw - 32px));
+              max-width: calc(100vw - 32px);
+              height: auto;
+              box-sizing: border-box;
+              position: fixed;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+            }
+            .shiny-notification .progress-text,
+            .shiny-notification .progress-message,
+            .shiny-notification .progress-detail,
+            .shiny-notification .shiny-notification-content-text,
+            .shiny-notification .shiny-notification-message {
+              white-space: normal;
+              overflow-wrap: anywhere;
             }"
         )
       ),

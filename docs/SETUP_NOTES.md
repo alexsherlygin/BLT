@@ -95,12 +95,14 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 
 ## Docker preset lookups
 - Build the Docker image from the repo root with `docker build -f infra/docker/Dockerfile .`.
+- Or start the app with Docker Compose from the repo root using `docker compose up --build`.
 - The Docker image now seeds project data from `resources/seed-project/` into `/data/project` on container start.
 - The container generates a runtime YAML from `infra/docker/config/container-project-settings.yml` and sets `BLT_PROJECT_SETTINGS` automatically.
 - To persist lookup edits and `userAnnotations.rds` across container recreations, mount a volume to `/data/project`.
 - If you do not mount a volume, every new container still starts with the baked-in lookup defaults from `resources/seed-project/`.
 - Export dialogs can be restricted to a single safe folder by setting `BLT_EXPORT_DIR` (Docker image default: `/exports`).
 - To let users export to the host Desktop without exposing container internals, bind-mount a host folder such as `$HOME/Desktop/BLT-Exports` to `/exports`.
+- The repo `compose.yml` uses a named volume for `/data/project` and bind-mounts `./docker-exports` to `/exports` for easy access from the host.
 
 ## Persistence
 Current persistent app data is file-based and stored in user-specific R directories.

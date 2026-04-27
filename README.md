@@ -21,4 +21,8 @@ Rscript -e 'install.packages("remotes"); remotes::install_local("app", dependenc
 docker build -f infra/docker/Dockerfile .
 ```
 
+```bash
+docker compose up --build
+```
+
 Package-specific README and installation details are in [`app/README.md`](app/README.md).

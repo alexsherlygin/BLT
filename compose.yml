@@ -1,0 +1,24 @@
+services:
+  blt:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile
+    image: alexsherlygin/blt:V4.3
+    ports:
+      - "${BLT_PORT:-8090}:8090"
+    environment:
+      BLT_HOST: ${BLT_HOST:-0.0.0.0}
+      BLT_PORT: ${BLT_PORT:-8090}
+      BLT_LAUNCH_BROWSER: ${BLT_LAUNCH_BROWSER:-false}
+      GOLEM_CONFIG_ACTIVE: ${GOLEM_CONFIG_ACTIVE:-production}
+      R_CONFIG_ACTIVE: ${R_CONFIG_ACTIVE:-production}
+      BLT_EXPORT_DIR: ${BLT_EXPORT_DIR:-/exports}
+      BLT_EXPORT_ROOT_NAME: ${BLT_EXPORT_ROOT_NAME:-Export Folder}
+      BLT_HIDE_IMAGE_EXPORT_BUTTONS: ${BLT_HIDE_IMAGE_EXPORT_BUTTONS:-true}
+    volumes:
+      - blt_project_data:/data/project
+      - ./docker-exports:/exports
+    restart: unless-stopped
+
+volumes:
+  blt_project_data:
