@@ -106,6 +106,17 @@ Rscript -e 'options(shiny.host="127.0.0.1", shiny.port=8090, shiny.launch.browse
 - The Compose setup also defines a `healthcheck` for BLT and an `autoheal` sidecar that restarts the BLT container if it becomes `unhealthy`.
 - The current health check verifies that the BLT HTTP endpoint answers on the configured internal port and that the app heartbeat file is still being refreshed by the R process.
 - Default timing is intentionally conservative to reduce false restarts on a healthy but busy app: heartbeat every `15s`, heartbeat freshness window `90s`, HTTP timeout `5s`, health check interval `30s`, and `3` failed checks before the container becomes `unhealthy`.
+- The Compose setup now also includes a basic monitoring layer:
+- `prometheus` for metrics collection on port `9090`
+- `alertmanager` for alert routing on port `9093`
+- `blackbox_exporter` for external-style HTTP probing of `http://blt:8090/`
+- `node_exporter` for host-level CPU, memory, disk, and filesystem metrics
+- Prometheus configuration lives under `infra/monitoring/prometheus/`, and blackbox exporter configuration lives under `infra/monitoring/blackbox/`.
+- Alertmanager configuration lives under `infra/monitoring/alertmanager/`.
+- Prometheus alert rules live under `infra/monitoring/prometheus/alerts/`.
+- The default Alertmanager receiver is intentionally local-only for now, so alerts are visible in Alertmanager even before Slack, Telegram, or email delivery is configured.
+- Telegram delivery can be enabled without committing secrets to git by creating a local `.env` file with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, then restarting the `alertmanager` service.
+- Email delivery can be enabled the same way by setting `ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`, and `SMTP_SMARTHOST` in the local `.env`, plus `SMTP_AUTH_USERNAME` and `SMTP_AUTH_PASSWORD` when SMTP authentication is required.
 
 ## Persistence
 Current persistent app data is file-based and stored in user-specific R directories.

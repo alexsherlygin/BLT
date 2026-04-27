@@ -23,8 +23,7 @@ services:
       BLT_HEALTHCHECK_HTTP_TIMEOUT_SECS: ${BLT_HEALTHCHECK_HTTP_TIMEOUT_SECS:-5}
     volumes:
       - blt_project_data:/data/project
-      - ./docker-exports:/exports      - ю.вщслук-учзщкеыЖ.учзщкеы
-
+      - ./docker-exports:/exports
     healthcheck:
       test: ["CMD", "/workspace/infra/docker/scripts/healthcheck.sh"]
       interval: 30s
@@ -42,5 +41,58 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/monitoring/prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    entrypoint:
+      - /bin/sh
+      - /etc/alertmanager/start_alertmanager.sh
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./infra/monitoring/alertmanager/alertmanager.base.yml:/etc/alertmanager/alertmanager.base.yml:ro
+      - ./infra/monitoring/alertmanager/start_alertmanager.sh:/etc/alertmanager/start_alertmanager.sh:ro
+      - alertmanager_data:/alertmanager
+    restart: unless-stopped
+
+  blackbox-exporter:
+    image: quay.io/prometheus/blackbox-exporter:latest
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    volumes:
+      - ./infra/monitoring/blackbox/config.yml:/etc/blackbox_exporter/config.yml:ro
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    command:
+      - --path.procfs=/host/proc
+      - --path.rootfs=/rootfs
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: unless-stopped
+
 volumes:
   blt_project_data:
+  prometheus_data:
+  alertmanager_data:

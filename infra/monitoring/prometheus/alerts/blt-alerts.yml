@@ -1,0 +1,76 @@
+groups:
+  - name: blt-availability
+    rules:
+      - alert: BLTBlackboxProbeFailed
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: blt
+        annotations:
+          summary: "BLT HTTP probe is failing"
+          description: "Prometheus blackbox probe for BLT has been failing for more than 2 minutes."
+
+      - alert: BLTSlowHTTPResponse
+        expr: avg_over_time(probe_duration_seconds{job="blackbox-http"}[5m]) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: blt
+        annotations:
+          summary: "BLT HTTP probe is slow"
+          description: "Average BLT HTTP probe duration has been above 2 seconds for 10 minutes."
+
+  - name: monitoring-stack
+    rules:
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "node_exporter is down"
+          description: "Prometheus cannot scrape node_exporter for more than 2 minutes."
+
+      - alert: BlackboxExporterDown
+        expr: up{job="blackbox-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "blackbox_exporter is down"
+          description: "Prometheus cannot scrape blackbox_exporter for more than 2 minutes."
+
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "Alertmanager is down"
+          description: "Prometheus cannot scrape Alertmanager for more than 2 minutes."
+
+  - name: host-health
+    rules:
+      - alert: HostHighMemoryUsage
+        expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 90
+        for: 10m
+        labels:
+          severity: warning
+          service: host
+        annotations:
+          summary: "Host memory usage is high"
+          description: "Host memory usage has been above 90 percent for 10 minutes."
+
+      - alert: HostLowDiskSpace
+        expr: 100 * (1 - (node_filesystem_avail_bytes{mountpoint="/",fstype!=""} / node_filesystem_size_bytes{mountpoint="/",fstype!=""})) > 85
+        for: 15m
+        labels:
+          severity: warning
+          service: host
+        annotations:
+          summary: "Host disk usage is high"
+          description: "Root filesystem usage has been above 85 percent for 15 minutes."
