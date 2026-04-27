@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
-    image: alexsherlygin/blt:V4.5
+    image: alexsherlygin/blt:V4.6
     labels:
       autoheal: "true"
     ports:
@@ -63,11 +63,14 @@ services:
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      SSL_CERT_DIR: ${ALERTMANAGER_SSL_CERT_DIR:-/etc/ssl/certs:/etc/alertmanager/custom-certs}
     ports:
       - "${ALERTMANAGER_PORT:-9093}:9093"
     volumes:
       - ./infra/monitoring/alertmanager/alertmanager.base.yml:/etc/alertmanager/alertmanager.base.yml:ro
       - ./infra/monitoring/alertmanager/start_alertmanager.sh:/etc/alertmanager/start_alertmanager.sh:ro
+      - ./infra/docker/certs/zscaler-root.crt:/etc/alertmanager/custom-certs/zscaler-root.crt:ro
+      - ./infra/docker/certs/zscaler-intermediate.crt:/etc/alertmanager/custom-certs/zscaler-intermediate.crt:ro
       - alertmanager_data:/alertmanager
     restart: unless-stopped
 
