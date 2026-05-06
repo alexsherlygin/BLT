@@ -49,6 +49,7 @@ Imports:
     leaflet.extras,
     leafpm,
     magrittr,
+    png,
     readr,
     scales,
     sf,

@@ -311,6 +311,53 @@ check_for_annotations <- function(myUserAnnotationsData, myCurrentImage, myUser 
   return(newdata)
 }
 
+get_exif_orientation <- function(image_metadata) {
+  if (is.null(image_metadata) || !"Orientation" %in% colnames(image_metadata) || nrow(image_metadata) == 0) {
+    return(1L)
+  }
+
+  orientation <- image_metadata$Orientation[1]
+  if (is.na(orientation) || length(orientation) == 0) {
+    return(1L)
+  }
+
+  if (is.numeric(orientation)) {
+    orientation <- as.integer(orientation)
+  } else {
+    orientation_text <- tolower(trimws(as.character(orientation)))
+    orientation <- switch(
+      orientation_text,
+      "horizontal (normal)" = 1L,
+      "mirror horizontal" = 2L,
+      "rotate 180" = 3L,
+      "mirror vertical" = 4L,
+      "mirror horizontal and rotate 270 cw" = 5L,
+      "rotate 90 cw" = 6L,
+      "mirror horizontal and rotate 90 cw" = 7L,
+      "rotate 270 cw" = 8L,
+      suppressWarnings(as.integer(orientation_text))
+    )
+  }
+
+  if (is.na(orientation) || !orientation %in% 1:8) {
+    return(1L)
+  }
+
+  orientation
+}
+
+get_image_display_dimensions <- function(image_metadata) {
+  image_width <- as.numeric(image_metadata$ImageWidth[1])
+  image_height <- as.numeric(image_metadata$ImageHeight[1])
+  orientation <- get_exif_orientation(image_metadata)
+
+  if (orientation %in% 5:8) {
+    return(c(width = image_height, height = image_width))
+  }
+
+  c(width = image_width, height = image_height)
+}
+
 # edit annotations data
 edit_annotation_data <- function(myUserAnnotationsData, myId,
                                  myUser = NA, myImage = NA,
@@ -1142,8 +1189,9 @@ addCurrentImageToLeaflet360 <- function(r){
   # Prepare the dynamic image URL
   imageURL <- paste0("'", r$session_files_resource_path, "/", r$current_image, "'")
   # Define the bounds of the image
-  imageWidth <- r$current_image_metadata$ImageWidth  # Width of the image
-  imageHeight <- r$current_image_metadata$ImageHeight  # Height of the image
+  image_dimensions <- get_image_display_dimensions(r$current_image_metadata)
+  imageWidth <- image_dimensions[["width"]]  # Width of the image as rendered in the browser
+  imageHeight <- image_dimensions[["height"]]  # Height of the image as rendered in the browser
   imageBounds <- list(c(0, 0), c(imageHeight, imageWidth))
   # Calculate the center of the image
   imageCenter <- c(imageHeight / 2, imageWidth / 2)
@@ -1172,10 +1220,19 @@ addCurrentImageToLeaflet360 <- function(r){
         function(el, x) {
           var imageUrl = ", imageURL, ";
           var imageBounds = ", jsonlite::toJSON(imageBounds), ";
-          L.imageOverlay(imageUrl, imageBounds, {
+          var imageOverlay = L.imageOverlay(imageUrl, imageBounds, {
             opacity: 1,
             interactive: false
-          }).addTo(this);
+          });
+
+          imageOverlay.once('load', function() {
+            var imageElement = imageOverlay.getElement();
+            if (imageElement) {
+              imageElement.style.imageOrientation = 'from-image';
+            }
+          });
+
+          imageOverlay.addTo(this);
 
           Shiny.addCustomMessageHandler('removeleaflet360', function(data){
            var map = HTMLWidgets.find('#' + data.elid).getMap();
@@ -1324,7 +1381,126 @@ create_form_icons <- function() {
 
 ##############
 
+flip_image_horizontal <- function(img) {
+  if (length(dim(img)) == 2) {
+    return(img[, rev(seq_len(ncol(img))), drop = FALSE])
+  }
+
+  img[, rev(seq_len(dim(img)[2])), , drop = FALSE]
+}
+
+flip_image_vertical <- function(img) {
+  if (length(dim(img)) == 2) {
+    return(img[rev(seq_len(nrow(img))), , drop = FALSE])
+  }
+
+  img[rev(seq_len(dim(img)[1])), , , drop = FALSE]
+}
+
+transpose_image <- function(img) {
+  if (length(dim(img)) == 2) {
+    return(t(img))
+  }
+
+  aperm(img, c(2, 1, 3))
+}
+
+rotate_image_180 <- function(img) {
+  flip_image_vertical(flip_image_horizontal(img))
+}
+
+rotate_image_90_clockwise <- function(img) {
+  transpose_image(flip_image_vertical(img))
+}
+
+rotate_image_90_counterclockwise <- function(img) {
+  flip_image_vertical(transpose_image(img))
+}
+
+orient_image_array <- function(img, orientation = 1L) {
+  orientation <- suppressWarnings(as.integer(orientation))
+  if (is.na(orientation) || !orientation %in% 1:8) {
+    orientation <- 1L
+  }
+
+  switch(
+    as.character(orientation),
+    "1" = img,
+    "2" = flip_image_horizontal(img),
+    "3" = rotate_image_180(img),
+    "4" = flip_image_vertical(img),
+    "5" = transpose_image(img),
+    "6" = rotate_image_90_clockwise(img),
+    "7" = rotate_image_180(transpose_image(img)),
+    "8" = rotate_image_90_counterclockwise(img)
+  )
+}
+
 # function for outputting cropped polygons
+read_image_raster <- function(image_path, orientation = 1L) {
+  image_ext <- tolower(tools::file_ext(image_path))
+  img <- switch(
+    image_ext,
+    jpg = jpeg::readJPEG(image_path),
+    jpeg = jpeg::readJPEG(image_path),
+    png = png::readPNG(image_path),
+    stop(paste0("Unsupported image format for annotation image export: ", image_ext))
+  )
+
+  img <- orient_image_array(img, orientation)
+  grDevices::as.raster(img)
+}
+
+get_crop_image_dimensions <- function(bbox) {
+  crop_width <- ceiling(as.numeric(bbox[["xmax"]]) - as.numeric(bbox[["xmin"]]))
+  crop_height <- ceiling(as.numeric(bbox[["ymax"]]) - as.numeric(bbox[["ymin"]]))
+
+  if (is.na(crop_width) || is.na(crop_height)) {
+    stop("Unable to calculate annotation crop dimensions.")
+  }
+
+  c(
+    width = max(1L, as.integer(crop_width)),
+    height = max(1L, as.integer(crop_height))
+  )
+}
+
+scale_dimensions_to_fit <- function(width, height, max_width, max_height) {
+  width <- as.numeric(width)
+  height <- as.numeric(height)
+  max_width <- as.numeric(max_width)
+  max_height <- as.numeric(max_height)
+
+  if (
+    is.na(width) || is.na(height) || is.na(max_width) || is.na(max_height) ||
+      width <= 0 || height <= 0 || max_width <= 0 || max_height <= 0
+  ) {
+    stop("Unable to calculate scaled image dimensions.")
+  }
+
+  scale <- min(max_width / width, max_height / height)
+  c(width = width * scale, height = height * scale)
+}
+
+get_scaled_image_dimensions <- function(image_path, max_width, max_height) {
+  image_ext <- tolower(tools::file_ext(image_path))
+  img <- switch(
+    image_ext,
+    jpg = jpeg::readJPEG(image_path),
+    jpeg = jpeg::readJPEG(image_path),
+    png = png::readPNG(image_path),
+    stop(paste0("Unsupported image format for workbook image export: ", image_ext))
+  )
+
+  image_dims <- dim(img)
+  scale_dimensions_to_fit(
+    width = image_dims[[2]],
+    height = image_dims[[1]],
+    max_width = max_width,
+    max_height = max_height
+  )
+}
+
 create_cropped_polygons_from_360_images <- function(annotations_export_dir, r){
   req(r$user_annotations_data, r$current_annotation_360polygons, r$current_image, r$current_image_metadata)
 
@@ -1347,21 +1523,24 @@ export_cropped_polygons_for_image <- function(annotations_export_dir, image_name
     return(invisible(0))
   }
 
-  img <- jpeg::readJPEG(image_path)
-  img_raster <- grDevices::as.raster(img)
-  plot_width <- image_metadata$ImageWidth
-  plot_height <- image_metadata$ImageHeight
+  orientation <- get_exif_orientation(image_metadata)
+  img_raster <- read_image_raster(image_path, orientation = orientation)
+  image_dimensions <- get_image_display_dimensions(image_metadata)
+  plot_width <- image_dimensions[["width"]]
+  plot_height <- image_dimensions[["height"]]
 
-  polygons_sf <- sf::st_as_sf(df_polygons, wkt = "geometry", crs = 4326)
+  polygons_sf <- sf::st_as_sf(df_polygons, wkt = "geometry")
   num_polygons <- nrow(polygons_sf)
 
   for (i in seq_len(num_polygons)) {
     bbox <- sf::st_bbox(polygons_sf[i, ])
+    crop_dimensions <- get_crop_image_dimensions(bbox)
 
     p <- ggplot2::ggplot() +
       ggplot2::annotation_raster(img_raster, xmin=0, xmax=plot_width, ymin=0, ymax=plot_height) +
-      ggplot2::coord_sf(xlim = c(bbox$xmin, bbox$xmax), ylim = c(bbox$ymin, bbox$ymax), expand = FALSE) +
-      ggplot2::theme_void()
+      ggplot2::coord_sf(xlim = c(bbox$xmin, bbox$xmax), ylim = c(bbox$ymin, bbox$ymax), expand = FALSE, datum = NA) +
+      ggplot2::theme_void() +
+      ggplot2::theme(plot.margin = ggplot2::margin(0, 0, 0, 0, unit = "pt"))
 
     if (myEnv$config$showPano360PolygonStrokeInCropExport && myEnv$config$showPano360PolygonFillInCropExport) {
       p <- p + ggplot2::geom_sf(
@@ -1387,9 +1566,21 @@ export_cropped_polygons_for_image <- function(annotations_export_dir, image_name
       )
     }
 
-    cropped_image_path <- paste0(annotations_export_dir, "/", gsub("\\.\\w+$", paste0("_", polygons_sf[i, "id"], ".png"), image_name))
+    annotation_id <- as.character(polygons_sf$id[[i]])
+    cropped_image_path <- file.path(
+      annotations_export_dir,
+      sub("\\.\\w+$", paste0("_", annotation_id, ".png"), image_name)
+    )
 
-    grDevices::png(filename = cropped_image_path, units = "px", type = "cairo-png", bg = "transparent", res = 96)
+    grDevices::png(
+      filename = cropped_image_path,
+      width = crop_dimensions[["width"]],
+      height = crop_dimensions[["height"]],
+      units = "px",
+      type = "cairo-png",
+      bg = "transparent",
+      res = 96
+    )
     print(p)
     grDevices::dev.off()
 

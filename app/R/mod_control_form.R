@@ -835,7 +835,7 @@ mod_control_form_ui <- function(id){
         column(4, textInput(ns("quick_blade"), label = "Blade Number", value = "", placeholder = "e.g. 2")),
         column(4, textInput(ns("quick_chamber"), label = "Chamber Number", value = "", placeholder = "e.g. 3"))
       ),
-      actionButton(ns("quick_fill_apply"), label = "Apply to all annotations", icon = icon("check"), class = "btn btn-success btn-sm", style = "width: 100%;")
+      actionButton(ns("quick_fill_apply"), label = "Apply to loaded images", icon = icon("check"), class = "btn btn-success btn-sm", style = "width: 100%;")
     ),
     tags$hr(),
 
@@ -1229,15 +1229,25 @@ mod_control_form_server <- function(id, r){
           openxlsx::setColWidths(wb, sheet = "Annotations", cols = image_col, widths = 35)
           for (current_row in matched_rows) {
             excel_row <- current_row + 1
-            openxlsx::setRowHeights(wb, sheet = "Annotations", rows = excel_row, heights = 95)
+            image_size <- get_scaled_image_dimensions(
+              annotation_img_paths[current_row],
+              max_width = 2.3,
+              max_height = 1.2
+            )
+            openxlsx::setRowHeights(
+              wb,
+              sheet = "Annotations",
+              rows = excel_row,
+              heights = max(95, image_size[["height"]] * 72 + 8)
+            )
             openxlsx::insertImage(
               wb,
               sheet = "Annotations",
               file = annotation_img_paths[current_row],
               startRow = excel_row,
               startCol = image_col,
-              width = 2.3,
-              height = 1.2,
+              width = image_size[["width"]],
+              height = image_size[["height"]],
               units = "in",
               dpi = 96
             )
@@ -1332,7 +1342,7 @@ mod_control_form_server <- function(id, r){
       }
     )
 
-    # Quick Fill: Apply WT/Blade/Chamber to ALL annotations across all images
+    # Quick Fill: Apply WT/Blade/Chamber to annotations for currently loaded images
     observe({
       req(r$user_annotations_data, r$user_annotations_file_name)
       wt_val <- trimws(input$quick_wt)
@@ -1344,9 +1354,26 @@ mod_control_form_server <- function(id, r){
         return()
       }
 
+      loaded_images <- r$imgs_lst
+      if (is.null(loaded_images) || length(loaded_images) == 0) {
+        shinyWidgets::show_alert(title = "No images loaded", text = "Please load images before applying Quick Fill.", type = "warning")
+        return()
+      }
+      loaded_images <- unique(trimws(as.character(loaded_images)))
+      loaded_images <- loaded_images[!is.na(loaded_images) & nzchar(loaded_images)]
+      if (length(loaded_images) == 0) {
+        shinyWidgets::show_alert(title = "No images loaded", text = "Please load images before applying Quick Fill.", type = "warning")
+        return()
+      }
+
       df <- r$user_annotations_data
       if (nrow(df) == 0) {
         shinyWidgets::show_alert(title = "No annotations", text = "There are no annotations to update.", type = "warning")
+        return()
+      }
+      target_rows <- !is.na(df$imagefile) & as.character(df$imagefile) %in% loaded_images
+      if (!any(target_rows)) {
+        shinyWidgets::show_alert(title = "No matching annotations", text = "There are no annotations for the currently loaded images.", type = "warning")
         return()
       }
 
@@ -1357,15 +1384,22 @@ mod_control_form_server <- function(id, r){
         "Chamber Number" = chamber_val
       )
 
+      updated_columns <- 0
       for (i in 1:8) {
         lbl <- myEnv$config[[paste0("lookup", i, "Label")]]
         dd_col <- paste0("dd", i)
         if (!is.null(lbl) && lbl %in% names(label_map)) {
           val <- label_map[[lbl]]
           if (nchar(val) > 0 && dd_col %in% colnames(df)) {
-            df[[dd_col]] <- val
+            df[target_rows, dd_col] <- val
+            updated_columns <- updated_columns + 1
           }
         }
+      }
+
+      if (updated_columns == 0) {
+        shinyWidgets::show_alert(title = "No matching fields", text = "Quick Fill fields do not match the configured lookup labels.", type = "warning")
+        return()
       }
 
       r$user_annotations_data <- df
@@ -1373,6 +1407,8 @@ mod_control_form_server <- function(id, r){
 
       # Update visible dropdown/text UI elements for all currently displayed annotation cards
       active_ids <- r$active_annotations()
+      target_ids <- as.character(df$id[target_rows])
+      active_ids <- intersect(as.character(active_ids), target_ids)
       for (i in 1:8) {
         lbl <- myEnv$config[[paste0("lookup", i, "Label")]]
         if (!is.null(lbl) && lbl %in% names(label_map)) {
@@ -1393,7 +1429,7 @@ mod_control_form_server <- function(id, r){
 
       shinyWidgets::show_alert(
         title = "Applied!",
-        text = paste0("Values applied to ", nrow(df), " annotations across all images."),
+        text = paste0("Values applied to ", sum(target_rows), " annotations for currently loaded images."),
         type = "success"
       )
     }) %>% bindEvent(input$quick_fill_apply)
