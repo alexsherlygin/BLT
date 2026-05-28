@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile
-    image: alexsherlygin/blt:V4.6
+    image: alexsherlygin/blt:V5
     labels:
       autoheal: "true"
     ports:
